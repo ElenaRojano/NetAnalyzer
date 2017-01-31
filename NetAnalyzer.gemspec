@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = %q{Network analysis tool that calculate and validate different association indices.}
   spec.description   = %q{NetAnalyzer is a useful network analysis tool developed in Ruby that can 1) analyse any type of unweighted network, regardless of the number of layers, 2) calculate the relationship between different layers, using various association indices (Jaccard, Simpson, PCC, geometric, cosine and hypergeometric) and 3) validate the results}
-  spec.homepage      = ""
+  spec.homepage      = "https://github.com/ElenaRojano/NetAnalyzer"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
