@@ -206,9 +206,10 @@ class Network
 	end
 
 	def get_geometric_associations(layers, base_layer)
+		#wang 2016 method
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|	
 			intersectedIDs = intersectedIDs.length**2
-			productLength = associatedIDs_node1.length * associatedIDs_node2.length
+			productLength = Math.sqrt(associatedIDs_node1.length * associatedIDs_node2.length)
 			geometricValue = intersectedIDs.to_f/productLength
 		end
 		@association_values[:geometric] = relations
@@ -250,14 +251,15 @@ class Network
 			#Using index from A layer proyected to B
 			(intersection_lengths..minLength).each do |i|
 				binom_product = binom(nA, i) * binom(ny - nA, nB - i)
-				binom_product_float = binom_product.to_f
-				to_f = false
-				if binom_product_float.infinite? # Handle bignum coercition to bigdecimal to avoid infinity values on float class. 
-					binom_product_float = BigDecimal.new(binom_product)
-					to_f = true
-				end
-				sum += binom_product_float / binom(ny, nB)
-				sum = sum.to_f if to_f # once the operation has finished, sum is corced from bigdecimal to float
+				sum += binom_product.fdiv(binom(ny, nB))
+				# binom_product_float = binom_product.to_f
+				# to_f = false
+				# if binom_product_float.infinite? # Handle bignum coercition to bigdecimal to avoid infinity values on float class. 
+				# 	binom_product_float = BigDecimal.new(binom_product)
+				# 	to_f = true
+				# end
+				# sum += binom_product_float / binom(ny, nB)
+				# sum = sum.to_f if to_f # once the operation has finished, sum is corced from bigdecimal to float
 			end
 			if sum == 0
 				hypergeometricValue = 0
