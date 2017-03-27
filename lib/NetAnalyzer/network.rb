@@ -227,7 +227,7 @@ class Network
 
 	def get_pcc_associations(layers, base_layer)
 		#for Ny calcule use get_nodes_layer
-		ny = get_nodes_layer(layers).length
+		ny = get_nodes_layer([base_layer]).length
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			intersProd = intersectedIDs.length * ny
 			nodesProd = associatedIDs_node1.length * associatedIDs_node2.length
@@ -241,31 +241,27 @@ class Network
 	end
 
 	def get_hypergeometric_associations(layers, base_layer)
-		ny = get_nodes_layer(layers).length
+		ny = get_nodes_layer([base_layer]).length
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			minLength = [associatedIDs_node1.length, associatedIDs_node2.length].min
 			intersection_lengths = intersectedIDs.length
 			sum = 0
-			nA = associatedIDs_node1.length
-			nB = associatedIDs_node2.length
-			#Using index from A layer proyected to B
-			(intersection_lengths..minLength).each do |i|
-				binom_product = binom(nA, i) * binom(ny - nA, nB - i)
-				sum += binom_product.fdiv(binom(ny, nB))
-				# binom_product_float = binom_product.to_f
-				# to_f = false
-				# if binom_product_float.infinite? # Handle bignum coercition to bigdecimal to avoid infinity values on float class. 
-				# 	binom_product_float = BigDecimal.new(binom_product)
-				# 	to_f = true
-				# end
-				# sum += binom_product_float / binom(ny, nB)
-				# sum = sum.to_f if to_f # once the operation has finished, sum is corced from bigdecimal to float
+			if intersection_lengths > 0
+				nA = associatedIDs_node1.length
+				nB = associatedIDs_node2.length
+				#Using index from A layer proyected to B
+				hyper_denom = binom(ny, nB)
+				(intersection_lengths..minLength).each do |i|
+					binom_product = binom(nA, i) * binom(ny - nA, nB - i)
+					sum += binom_product.fdiv(hyper_denom)
+				end
 			end
 			if sum == 0
 				hypergeometricValue = 0
 			else
 				hypergeometricValue = -Math.log10(sum)
 			end
+			puts hypergeometricValue
 			hypergeometricValue
 		end
 		@association_values[:hypergeometric] = relations
