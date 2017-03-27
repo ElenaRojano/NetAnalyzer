@@ -261,7 +261,6 @@ class Network
 			else
 				hypergeometricValue = -Math.log10(sum)
 			end
-			puts hypergeometricValue
 			hypergeometricValue
 		end
 		@association_values[:hypergeometric] = relations
