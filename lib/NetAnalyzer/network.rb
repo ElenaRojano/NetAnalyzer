@@ -285,7 +285,7 @@ class Network
 				add_record(indexed_pcc_relations, node2, node1, assoc_index)
 			end
 		end
-		ny = get_nodes_layer(layers).length
+		ny = get_nodes_layer([base_layer]).length
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			query = indexed_pcc_relations[node1]
 			if query.nil?
