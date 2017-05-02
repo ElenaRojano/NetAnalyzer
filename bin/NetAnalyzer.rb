@@ -8,25 +8,6 @@ require 'network'
 require 'optparse'
 
 ##############################
-# MAIN METHODS
-##############################
-
-def set_layer(layer_definitions, node_name)
-	layer = nil
-	if layer_definitions.length > 1
-		layer_definitions.each do |layer_name, regexp|
-			if node_name =~ regexp
-				layer = layer_name
-				break
-			end
-		end
-	else
-		layer = layer_definitions.first.first
-	end
-	return layer
-end
-
-##############################
 #OPTPARSE
 ##############################
 
@@ -99,17 +80,9 @@ end.parse!
 
 fullNet = Network.new(options[:layers].map{|layer| layer.first})
 puts "Loading network data"
-File.open(options[:input_file]).each("\n") do |line|
-	line.chomp!
-	pair = line.split(options[:splitChar])
-	node1 = pair[0]
-	node2 = pair[1]
-	fullNet.add_node(node1, set_layer(options[:layers], node1))
-	fullNet.add_node(node2, set_layer(options[:layers], node2))
-	fullNet.add_edge(node1, node2)	
-end
-#fullNet.plot(options[:output_file], options[:output_style])
+fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:splitChar])
 
+#fullNet.plot(options[:output_file], options[:output_style])
 
 if !options[:meth].nil?
 	puts "Performing association method #{options[:meth]} on network"

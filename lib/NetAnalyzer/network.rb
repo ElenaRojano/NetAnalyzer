@@ -1,5 +1,5 @@
 require 'nodes'
-require 'nmatrix'
+#require 'nmatrix'
 require 'pp'
 require 'bigdecimal'
 
@@ -16,7 +16,7 @@ class Network
 		@association_values = {}
 		@control_connections = {}
 	end
-	
+
 	def add_node(nodeID, nodeType = 0)
 		@nodes[nodeID] = Node.new(nodeID, nodeType)
 	end
@@ -33,6 +33,23 @@ class Network
 		else
 			query << nodeB
 		end
+	end
+
+	def load_network_by_pairs(file, layers, split_character="\t")
+		File.open(file).each("\n") do |line|
+			line.chomp!
+			pair = line.split(split_character)
+			node1 = pair[0]
+			node2 = pair[1]
+			add_node(node1, set_layer(layers, node1))
+			add_node(node2, set_layer(layers, node2))
+			add_edge(node1, node2)	
+		end
+	end
+
+	def get_edge_number
+		node_connections = @edges.values.map{|connections| connections.length}.inject(0){|sum, n| sum + n}
+		return node_connections/2
 	end
 
 	def plot(output_filename, layout="dot")		
@@ -393,6 +410,21 @@ class Network
 	## AUXILIAR METHODS
 	#######################################################################################
 	private
+
+	def set_layer(layer_definitions, node_name)
+		layer = nil
+		if layer_definitions.length > 1
+			layer_definitions.each do |layer_name, regexp|
+				if node_name =~ regexp
+					layer = layer_name
+					break
+				end
+			end
+		else
+			layer = layer_definitions.first.first
+		end
+		return layer
+	end
 
 	def get_cuts(limits, n_cuts)
 		cuts = []
