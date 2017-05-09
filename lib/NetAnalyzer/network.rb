@@ -1,5 +1,5 @@
 require 'nodes'
-#require 'nmatrix'
+require 'nmatrix'
 require 'pp'
 require 'bigdecimal'
 
@@ -284,51 +284,49 @@ class Network
 		return relations
 	end
 
-	def add_record(hash, key, key2, value)
-		query = hash[key]
+	def add_record(hash, node1, node2)
+		query = hash[node1]
 		if query.nil?
-			hash[key]={key2 => value}
+			hash[node1] = [node2]
 		else
-			query[key2] = value
+			query << node2
 		end
 	end
 
+
 	def get_csi_associations(layers, base_layer)
 		pcc_relations = get_pcc_associations(layers, base_layer)
-		indexed_pcc_relations = {}
-		pcc_relations.each do |node1, node2, assoc_index|
-			if assoc_index > 0
-				add_record(indexed_pcc_relations, node1, node2, assoc_index)
-				add_record(indexed_pcc_relations, node2, node1, assoc_index)
-			end
-		end
 		ny = get_nodes_layer([base_layer]).length
-		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
-			query = indexed_pcc_relations[node1]
-			if query.nil?
-				valid_A_nodes = []
-				pccAB = -0.05
-			else
-				nested_query = query[node2]
-				if nested_query.nil?
-					pccAB = -0.05
-				else
-					pccAB = nested_query - 0.05
-				end
-				valid_A_nodes = query.select{|node_id, pcc| pcc>= pccAB}.keys
-			end
-			query2 = indexed_pcc_relations[node2]
-			if query2.nil?
-				valid_B_nodes = []
-			else
-				valid_B_nodes = query2.select{|node_id, pcc| pcc>= pccAB}.keys
-			end
-			valid_connections = valid_A_nodes | valid_B_nodes
-			csiValue = 1 - valid_connections.length.to_f/ny
+		pcc_vals = {}
+		node_rels = {}
+		pcc_relations.each do |node1, node2, assoc_index|
+			pcc_vals[[node1, node2].sort] = assoc_index
+			add_record(node_rels, node1, node2)
+			add_record(node_rels, node2, node1)
 		end
+		relations = []
+		pcc_relations.each do |node1, node2 ,assoc_index|
+			pccAB = assoc_index - 0.05
+			layer_nodes_conn2A = node_rels[node1]
+			layer_nodes_conn2B = node_rels[node2]
+			layer_intersectedIDs = layer_nodes_conn2B & layer_nodes_conn2A
+			valid_connections = 0
+			layer_intersectedIDs.each do |common_node|
+				pccAcommon_value = pcc_vals[[node1, common_node].sort]
+				pccBcommon_value = pcc_vals[[node2, common_node].sort]
+				if pccBcommon_value < pccAB && pccAcommon_value < pccAB
+					valid_connections += 1
+				end
+			end
+			csiValue = valid_connections / ny.to_f
+
+			relations << [node1, node2, csiValue]
+		end
+
 		@association_values[:csi] = relations
 		return relations
 	end
+
 
 	## PERFORMANCE METHODS
 	############################################################
