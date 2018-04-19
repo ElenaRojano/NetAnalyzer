@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.name          = "NetAnalyzer"
   spec.version       = NetAnalyzer::VERSION
   spec.authors       = ["Elena Rojano, Pedro Seoane"]
-  spec.email         = ["elenarojano@uma.es, seoanezonjic@uma.es"]
+  spec.email         = ["elenarojano@uma.es, seoanezonjic@hotmail.com"]
 
   spec.summary       = %q{Network analysis tool that calculate and validate different association indices.}
   spec.description   = %q{NetAnalyzer is a useful network analysis tool developed in Ruby that can 1) analyse any type of unweighted network, regardless of the number of layers, 2) calculate the relationship between different layers, using various association indices (Jaccard, Simpson, PCC, geometric, cosine and hypergeometric) and 3) validate the results}
@@ -24,4 +24,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_dependency "nmatrix"
   spec.add_dependency "bigdecimal"
+  spec.add_dependency "benchmark"
 end
