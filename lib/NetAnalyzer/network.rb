@@ -2,9 +2,11 @@ require 'nodes'
 require 'nmatrix'
 require 'pp'
 require 'bigdecimal'
+require 'benchmark'
 
 class Network
-	attr_reader :association_values
+
+	attr_accessor :association_values, :control_connections
 
 	## BASIC METHODS
 	############################################################
@@ -15,6 +17,11 @@ class Network
 		@layers = layers
 		@association_values = {}
 		@control_connections = {}
+		@compute_pairs = :conn
+	end
+
+	def set_compute_pairs(use_pairs)
+		@compute_pairs = use_pairs
 	end
 
 	def add_node(nodeID, nodeType = 0)
@@ -75,7 +82,7 @@ class Network
 	end
 
 	def get_all_pairs(args = {})
-		default = {:meth => :all, :layers => :all}
+		default = {:layers => :all}
 		args = default.merge(args)
 		if args[:layers] == :all
 			nodeIDs = @nodes.keys
@@ -86,15 +93,30 @@ class Network
 			end
 		end
 
-		if args[:meth] == :all
+		if @compute_pairs == :all
 			while !nodeIDs.empty?
 				node1 = nodeIDs.shift
 				nodeIDs.each do |node2|
 					yield(node1, node2)
 				end
 			end
-		#elsif args[:meth] == :conn
-			
+		elsif @compute_pairs == :conn
+			processed_node_ids = {}
+			while !nodeIDs.empty?
+				node1 = nodeIDs.shift
+				ids_connected_to_n1 = @edges[node1]
+				nodeIDs.each do |node2|
+					if processed_node_ids[node2].nil?
+						ids_connected_to_n2 = @edges[node2]
+						if !ids_connected_to_n1.nil? && 
+							!ids_connected_to_n2.nil? && 
+							!(ids_connected_to_n1 & ids_connected_to_n2).empty? # check that at least exists one node that connect to n1 and n2
+							yield(node1, node2)
+						end
+					end
+				end
+				processed_node_ids[node1] = true
+			end
 		end
 	end
 
@@ -244,7 +266,8 @@ class Network
 
 	def get_pcc_associations(layers, base_layer)
 		#for Ny calcule use get_nodes_layer
-		ny = get_nodes_layer([base_layer]).length
+		base_layer_nodes = get_nodes_layer([base_layer])
+		ny = base_layer_nodes.length
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			intersProd = intersectedIDs.length * ny
 			nodesProd = associatedIDs_node1.length * associatedIDs_node2.length
@@ -293,36 +316,42 @@ class Network
 		end
 	end
 
+	def add_nested_record(hash, node1, node2, val)
+		query_node1 = hash[node1]
+		if query_node1.nil?
+			hash[node1] = {node2 => val}
+		else
+			query_node1[node2] = val
+		end
+	end
+
 
 	def get_csi_associations(layers, base_layer)
 		pcc_relations = get_pcc_associations(layers, base_layer)
-		ny = get_nodes_layer([base_layer]).length
+		clean_autorelations_on_association_values if layers.length > 1
+		nx = get_nodes_layer(layers).length
 		pcc_vals = {}
 		node_rels = {}
 		pcc_relations.each do |node1, node2, assoc_index|
-			pcc_vals[[node1, node2].sort] = assoc_index
+			add_nested_record(pcc_vals, node1, node2, assoc_index.abs)
+			add_nested_record(pcc_vals, node2, node1, assoc_index.abs)
 			add_record(node_rels, node1, node2)
 			add_record(node_rels, node2, node1)
 		end
 		relations = []
 		pcc_relations.each do |node1, node2 ,assoc_index|
 			pccAB = assoc_index - 0.05
-			layer_nodes_conn2A = node_rels[node1]
-			layer_nodes_conn2B = node_rels[node2]
-			layer_intersectedIDs = layer_nodes_conn2B & layer_nodes_conn2A
-			valid_connections = 0
-			layer_intersectedIDs.each do |common_node|
-				pccAcommon_value = pcc_vals[[node1, common_node].sort]
-				pccBcommon_value = pcc_vals[[node2, common_node].sort]
-				if pccBcommon_value < pccAB && pccAcommon_value < pccAB
-					valid_connections += 1
-				end
+			valid_nodes = 0
+			node_rels[node1].each do |node|
+				valid_nodes += 1 if pcc_vals[node1][node] >= pccAB
 			end
-			csiValue = valid_connections / ny.to_f
-
+			node_rels[node2].each do |node|
+				valid_nodes += 1 if pcc_vals[node2][node] >= pccAB
+			end
+			csiValue = 1 - (valid_nodes-1).fdiv(nx) 
+			# valid_nodes-1 is done due to the connection node1-node2 is counted twice (one for each loop)
 			relations << [node1, node2, csiValue]
 		end
-
 		@association_values[:csi] = relations
 		return relations
 	end
@@ -391,11 +420,11 @@ class Network
 			if !pred_info.nil?
 				labels, scores = pred_info
 				reliable_labels = get_reliable_labels(labels, scores, cut, top)
-
 				predicted_labels += reliable_labels.length #m
 				common_labels += (c_labels & reliable_labels).length #k
 			end
 		end
+		#puts "cut: #{cut} trueL: #{true_labels} predL: #{predicted_labels} commL: #{common_labels}"
 		prec = common_labels.to_f/predicted_labels
 		rec = common_labels.to_f/true_labels
 		prec = 0.0 if prec.nan?
@@ -426,11 +455,11 @@ class Network
 
 	def get_cuts(limits, n_cuts)
 		cuts = []
-		range = (limits.last - limits.first).to_f/n_cuts
+		range = (limits.last - limits.first).abs.fdiv(n_cuts)
+		range = BigDecimal(range, 10)
 		cut = limits.first
-		n_cuts.times do
-			cuts << cut
-			cut += range
+		(n_cuts + 1).times do |n|
+			cuts << (cut + n * range).to_f
 		end
 		return cuts
 	end

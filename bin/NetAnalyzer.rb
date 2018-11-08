@@ -25,6 +25,11 @@ OptionParser.new do |opts|
     options[:split_char] = split_char
   end
 
+  options[:use_pairs] = :conn
+  opts.on("-P", "--use_pairs STRING", "Which pairs must be computed. 'all' means all posible pair node combinations and 'conn' means the pair are truly connected in the network. Default 'conn' ") do |use_pairs|
+    options[:use_pairs] = use_pairs.to_sym
+  end
+
   options[:output_file] = "network2plot"
   opts.on("-o", "--output_file PATH", "Output file name") do |output_file|
     options[:output_file] = output_file
@@ -79,6 +84,8 @@ end.parse!
 ##########################
 
 fullNet = Network.new(options[:layers].map{|layer| layer.first})
+fullNet.set_compute_pairs(options[:use_pairs])
+#puts options[:layers].map{|layer| layer.first}.inspect
 puts "Loading network data"
 fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:splitChar])
 
@@ -95,7 +102,7 @@ if !options[:meth].nil?
 			:transference)
 	else
 		fullNet.get_association_values(
-			options[:use_layers][0], 
+			options[:use_layers][0],
 			options[:use_layers][1].first, 
 			options[:meth])
 	end
