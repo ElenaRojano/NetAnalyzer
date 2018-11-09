@@ -24,5 +24,4 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_dependency "nmatrix"
   spec.add_dependency "bigdecimal"
-  spec.add_dependency "benchmark"
 end
