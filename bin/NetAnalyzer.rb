@@ -20,6 +20,16 @@ OptionParser.new do |opts|
     options[:input_file] = input_file
   end
 
+  options[:node_file] = nil
+  opts.on("-n", "--node_names_file PATH", "File with node names corresponding to the input matrix, only use when -i is set to bin or matrix.") do |node_file|
+    options[:node_file] = node_file
+  end
+
+  options[:input_format] = 'pair'
+  opts.on("-f", "--input_format STRING", "Input file format: pair (default), bin, matrix") do |input_format|
+    options[:input_format] = input_format
+  end
+
   options[:split_char] = "\t"
   opts.on("-s", "--split_char STRING", "Character for splitting input file. Default: tab") do |split_char|
     options[:split_char] = split_char
@@ -38,6 +48,11 @@ OptionParser.new do |opts|
   options[:assoc_file] = "assoc_values.txt"
   opts.on("-a", "--assoc_file PATH", "Output file name for association values") do |output_file|
     options[:assoc_file] = output_file
+  end
+
+  options[:kernel_file] = "kernel_values"
+  opts.on("-K", "--kernel_file PATH", "Output file name for kernel values") do |output_file|
+    options[:kernel_file] = output_file
   end
 
   options[:performance_file] = "perf_values.txt"
@@ -72,9 +87,19 @@ OptionParser.new do |opts|
     options[:meth] = meth.to_sym
   end
 
-  options[:no_autorelations] = FALSE
+  options[:kernel] = nil
+  opts.on("-k", "--kernel_method STRING", "Kernel operation to perform with the adjacency matrix") do |kernel|
+    options[:kernel] = kernel
+  end
+
+  options[:no_autorelations] = false
   opts.on("-N", "--no_autorelations", "Remove association values between nodes os same type") do
-    options[:no_autorelations] = TRUE
+    options[:no_autorelations] = true
+  end
+
+  options[:normalize_kernel] = false
+  opts.on("-z", "--normalize_kernel_values", "Apply cosine normalization to the obtained kernel") do
+    options[:normalize_kernel] = true
   end
 
 end.parse!
@@ -87,7 +112,15 @@ fullNet = Network.new(options[:layers].map{|layer| layer.first})
 fullNet.set_compute_pairs(options[:use_pairs])
 #puts options[:layers].map{|layer| layer.first}.inspect
 puts "Loading network data"
-fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:splitChar])
+if options[:input_format] == 'pair'
+  fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:splitChar])
+elsif options[:input_format] == 'bin'
+  fullNet.load_network_by_bin_matrix(options[:input_file], options[:node_file], options[:layers])
+elsif options[:input_format] == 'matrix'
+  fullNet.load_network_by_plain_matrix(options[:input_file], options[:node_file], options[:layers], options[:splitChar])
+else
+  raise("ERROR: The format #{options[:input_format]} is not defined")
+end
 
 #fullNet.plot(options[:output_file], options[:output_style])
 
@@ -106,31 +139,37 @@ if !options[:meth].nil?
 			options[:use_layers][1].first, 
 			options[:meth])
 	end
-	puts 'Clean autorelations'  if options[:no_autorelations]
-	fullNet.clean_autorelations_on_association_values if options[:no_autorelations]
+  if options[:no_autorelations]
+  	puts 'Clean autorelations'  
+  	fullNet.clean_autorelations_on_association_values
+  end
 	File.open(options[:assoc_file], 'w') do |f|
 		fullNet.association_values[options[:meth]].each do |val|
 			f.puts val.join("\t")
 		end
 	end
+  if !options[:control_file].nil?
+  	puts "Doing validation on association values obtained from method #{options[:meth]}"
+  	control = []
+  	File.open(options[:control_file]).each("\n") do |line|
+  		line.chomp!
+  		control << line.split("\t")
+  	end
+  	fullNet.load_control(control)
+  	performance = fullNet.get_pred_rec(options[:meth])
+  	File.open(options[:performance_file], 'w') do |f|
+  		f.puts %w[cut prec rec meth].join("\t")
+  		performance.each do |item|
+  			item << options[:meth].to_s
+  			f.puts item.join("\t")
+  		end
+  	end
+  end
+  puts "End of analysis: #{options[:meth]}"
 end
 
-if !options[:meth].nil? && !options[:control_file].nil?
-	puts "Doing validation on association values obtained from method #{options[:meth]}"
-	control = []
-	File.open(options[:control_file]).each("\n") do |line|
-		line.chomp!
-		control << line.split("\t")
-	end
-	fullNet.load_control(control)
-	performance = fullNet.get_pred_rec(options[:meth])
-	File.open(options[:performance_file], 'w') do |f|
-		f.puts %w[cut prec rec meth].join("\t")
-		performance.each do |item|
-			item << options[:meth].to_s
-			f.puts item.join("\t")
-		end
-	end
+if !options[:kernel].nil?
+  layer2kernel = options[:use_layers].first # we use only a layer to perform the kernel, so only one item it is selected.
+  fullNet.get_kernel(layer2kernel, options[:kernel], options[:normalize_kernel])
+  fullNet.write_kernel(layer2kernel, options[:kernel_file])
 end
-
-puts "End of analysis: #{options[:meth]}"

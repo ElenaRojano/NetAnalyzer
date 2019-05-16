@@ -1,12 +1,14 @@
 require 'nodes'
 require 'nmatrix'
+require 'nmatrix/lapacke'
 require 'pp'
 require 'bigdecimal'
 require 'benchmark'
+require 'nmatrix_expansion'
 
 class Network
 
-	attr_accessor :association_values, :control_connections
+	attr_accessor :association_values, :control_connections, :kernels
 
 	## BASIC METHODS
 	############################################################
@@ -14,6 +16,7 @@ class Network
 		@nodes = {} 
 		@edges = {}
 		@adjacency_matrices = {}
+		@kernels = {}
 		@layers = layers
 		@association_values = {}
 		@control_connections = {}
@@ -43,7 +46,8 @@ class Network
 	end
 
 	def load_network_by_pairs(file, layers, split_character="\t")
-		File.open(file).each("\n") do |line|
+		#File.open(file).each("\n") do |line| # old bug from io patching from lapacke gem
+		File.open(file).each do |line|
 			line.chomp!
 			pair = line.split(split_character)
 			node1 = pair[0]
@@ -52,6 +56,16 @@ class Network
 			add_node(node2, set_layer(layers, node2))
 			add_edge(node1, node2)	
 		end
+	end
+
+	def load_network_by_bin_matrix(input_file, node_file, layers)
+		node_names = load_input_list(node_file)
+		@adjacency_matrices[layers.map{|l| l.first}] = [NMatrix.read(input_file), node_names, node_names]
+	end
+
+	def load_network_by_plain_matrix(input_file, node_file, layers, splitChar)
+		node_names = load_input_list(node_file)
+		@adjacency_matrices[layers.map{|l| l.first}] = [load_matrix_file(input_file, splitChar), node_names, node_names]
 	end
 
 	def get_edge_number
@@ -432,11 +446,95 @@ class Network
 		return prec, rec
 	end
 
+	## KERNEL METHODS
+	#######################################################################################
+	def get_kernel(layer2kernel, kernel, normalization=false)
+		#matrix = NMatrix.new([3, 3],[1, 1, 0, 0, 0, 2, 0, 5, -1], dtype: :float32)
+		matrix, node_names = @adjacency_matrices[layer2kernel]
+		#I = identity matrix
+		#D = Diagonal matrix
+		#A = adjacency matrix
+		#L = laplacian matrix = D − A
+		matrix_result = nil
+		dimension_elements = matrix.cols
+		# In scuba code, the diagonal values of A is set to 0. In weighted matrix the kernel result is the same with or without this operation. Maybe increases the computing performance?
+		# In the md kernel this operation affects the values of the final kernel
+		#dimension_elements.times do |n|
+		#	matrix[n,n] = 0.0
+		#end
+		if kernel == 'el' || kernel == 'ct' || kernel == 'rf' || 
+			kernel.include?('vn') || kernel.include?('rl') || kernel == 'me'
+			row_sum = matrix.sum(1) # get the total sum for each row, for this reason the sum method takes the 1 value. If sum colums is desired, use 0
+			diagonal_matrix = NMatrix.diag(row_sum, dtype: :float32) # Make a matrix whose diagonal is row_sum
+			matrix_L = diagonal_matrix - matrix
+			if kernel == 'el' #Exponential Laplacian diffusion kernel(active). F Fouss 2012 | doi: 10.1016/j.neunet.2012.03.001
+			    beta = 0.02
+			    beta_product = matrix_L * beta
+			    matrix_result = beta_product.expm
+			elsif kernel == 'ct' # Commute time kernel (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
+			    matrix_result = matrix_L.pinv # Anibal saids that this kernel was normalized. Why?. Paper do not seem to describe this operation for ct, it describes for Kvn or for all kernels, it is not clear.
+			elsif kernel == 'rf' # Random forest kernel. J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
+			    matrix_result = (NMatrix.eye(dimension_elements, dtype: :float32) + matrix_L).invert! #Krf = (I +L ) ^ −1
+			elsif kernel.include?('vn') # von Neumann diffusion kernel. J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
+			    alpha = kernel.gsub('vn', '').to_f * matrix.max_eigenvalue ** -1  # alpha = impact_of_penalization (1, 0.5 or 0.1) * spectral radius of A. spectral radius of A = absolute value of max eigenvalue of A 
+			    matrix_result = (NMatrix.eye(dimension_elements, dtype: :float32) - matrix * alpha ).invert! #  (I -alphaA ) ^ −1
+			elsif kernel.include?('rl') # Regularized Laplacian kernel matrix (active)
+			    alpha = kernel.gsub('rl', '').to_f * matrix.max_eigenvalue ** -1  # alpha = impact_of_penalization (1, 0.5 or 0.1) * spectral radius of A. spectral radius of A = absolute value of max eigenvalue of A
+			    matrix_result = (NMatrix.eye(dimension_elements, dtype: :float32) + matrix_L * alpha ).invert! #  (I + alphaL ) ^ −1
+			elsif kernel == 'me' # Markov exponential diffusion kernel (active). G Zampieri 2018 | doi.org/10.1186/s12859-018-2025-5 . Taken from compute_kernel script
+				beta=0.04
+				#(beta/N)*(N*I - D + A)
+				id_mat = NMatrix.eye(dimension_elements, dtype: :float32)
+				m_matrix = (id_mat * dimension_elements - diagonal_matrix + matrix ) * (beta/dimension_elements)
+				matrix_result = expm(m_matrix)
+			end
+		elsif kernel == 'ka' # Kernelized adjacency matrix (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
+			lambda_value = matrix.min_eigenvalue
+			matrix_result = matrix + NMatrix.eye(dimension_elements, dtype: :float32) * lambda_value.abs # Ka = A + lambda*I # lambda = the absolute value of the smallest eigenvalue of A
+		elsif kernel.include?('md') # Markov diffusion kernel matrix. G Zampieri 2018 | doi.org/10.1186/s12859-018-2025-5 . Taken from compute_kernel script
+			t = kernel.gsub('md', '').to_i
+			col_sum = matrix.sum(1)
+			p_mat = matrix.div_by_vector(col_sum)
+			p_temp_mat = p_mat.clone
+			zt_mat = p_mat.clone
+			(t-1).times do
+				p_temp_mat = p_temp_mat.dot(p_mat)
+				zt_mat = zt_mat + p_temp_mat
+			end
+			zt_mat = zt_mat * (1.0/t)
+			matrix_result = zt_mat.dot(zt_mat.transpose())
+		else
+			matrix_result = matrix
+			warn('Warning: The kernel method was not specified or not exists. The adjacency matrix will be given as result')
+			# This allows process a previous kernel and perform the normalization in a separated step.
+		end
+		matrix_result = matrix_result.cosine_normalization if normalization
+		@kernels[layer2kernel] = matrix_result
+	end
 
+	def write_kernel(layer2kernel, output_file)
+		@kernels[layer2kernel].write(output_file)
+	end
 
 	## AUXILIAR METHODS
 	#######################################################################################
 	private
+
+	def load_input_list(file)
+		return File.open(file).readlines.map!{|line| line.chomp}
+	end
+
+	def load_matrix_file(input_file, splitChar = "\t")
+		dimension_elements = 0
+		adjacency_vector = []
+		File.open(input_file).each do |line|
+		    	line.chomp!
+	    		adjacency_vector.concat(line.split(splitChar).map{|c| c.to_f })
+		    	dimension_elements += 1
+		end
+		matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector) # Create working matrix
+		return matrix
+	end
 
 	def set_layer(layer_definitions, node_name)
 		layer = nil
