@@ -8,19 +8,19 @@ require 'pp'
 ## METHODS
 ##############################################################################
 
-def load_matrix_file(source)
-        dimension_elements = 0
-        adjacency_vector = []
-        source.each do |line|
-                line.chomp!
-                adjacency_vector.concat(line.split("\t").map{|c| c.to_f })
-                dimension_elements += 1
-        end
-        matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, dtype: :float32) # Create working matrix
-        return matrix
+def load_matrix_file(source, byte_format = :float32)
+    dimension_elements = 0
+    adjacency_vector = []
+    source.each do |line|
+            line.chomp!
+            adjacency_vector.concat(line.split("\t").map{|c| c.to_f })
+            dimension_elements += 1
+    end
+    matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, dtype: byte_format) # Create working matrix
+    return matrix
 end
 
-def load_pair_file(source)
+def load_pair_file(source, byte_format = :float32)
 	connections = {}
 	source.each do |line|
 		node_a, node_b, weight = line.chomp.split("\t")
@@ -29,7 +29,7 @@ def load_pair_file(source)
 		add_pair(node_b, node_a, weight, connections)
 	end
 	names = connections.keys
-	matrix = NMatrix.new( names.length, 0.0, dtype: :float32)
+	matrix = NMatrix.new( names.length, 0.0, dtype: byte_format)
 	count = 0
 	connections.each do |nodeA, subhash|
 		index_A = names.index(nodeA)
@@ -199,8 +199,13 @@ optparse = OptionParser.new do |opts|
         options[:output_matrix_file] = opt
     end
 
+    options[:byte_format] = :float64
+    opts.on( '-b', '--byte_format STRING', 'Format of the numeric values stored in matrix. Default: float64, warning set this to less precission can modify computation results using this matrix.' ) do |opt|
+        options[:byte_format] = opt.to_sym
+    end
+
     options[:input_type] = 'pair'
-    opts.on( '-t', '--input_type PATH', 'Set input format file. "pair" or "matrix"' ) do |opt|
+    opts.on( '-t', '--input_type STRING', 'Set input format file. "pair" or "matrix"' ) do |opt|
         options[:input_type] = opt
     end
 
@@ -241,9 +246,9 @@ end
 if options[:input_type] == 'bin'
 	matrix = NMatrix.read(options[:input_file]) # the method needs a path not a IO object 
 elsif options[:input_type] == 'matrix'
-	matrix = load_matrix_file(source)
+	matrix = load_matrix_file(source, options[:byte_format])
 elsif options[:input_type] == 'pair'
-	matrix, names = load_pair_file(source)
+	matrix, names = load_pair_file(source, options[:byte_format])
 	File.open(options[:output_matrix_file]+'.lst', 'w'){|f| f.print names.join("\n")}
 end
 

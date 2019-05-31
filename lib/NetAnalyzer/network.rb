@@ -21,10 +21,15 @@ class Network
 		@association_values = {}
 		@control_connections = {}
 		@compute_pairs = :conn
+		@matrix_byte_format = :float64
 	end
 
 	def set_compute_pairs(use_pairs)
 		@compute_pairs = use_pairs
+	end
+
+	def set_matrix_byte_format(matrix_format)
+		@matrix_byte_format = matrix_format
 	end
 
 	def add_node(nodeID, nodeType = 0)
@@ -449,7 +454,7 @@ class Network
 	## KERNEL METHODS
 	#######################################################################################
 	def get_kernel(layer2kernel, kernel, normalization=false)
-		#matrix = NMatrix.new([3, 3],[1, 1, 0, 0, 0, 2, 0, 5, -1], dtype: :float32)
+		#matrix = NMatrix.new([3, 3],[1, 1, 0, 0, 0, 2, 0, 5, -1], dtype: @matrix_byte_format)
 		matrix, node_names = @adjacency_matrices[layer2kernel]
 		#I = identity matrix
 		#D = Diagonal matrix
@@ -465,7 +470,7 @@ class Network
 		if kernel == 'el' || kernel == 'ct' || kernel == 'rf' || 
 			kernel.include?('vn') || kernel.include?('rl') || kernel == 'me'
 			row_sum = matrix.sum(1) # get the total sum for each row, for this reason the sum method takes the 1 value. If sum colums is desired, use 0
-			diagonal_matrix = NMatrix.diag(row_sum, dtype: :float32) # Make a matrix whose diagonal is row_sum
+			diagonal_matrix = NMatrix.diag(row_sum, dtype: @matrix_byte_format) # Make a matrix whose diagonal is row_sum
 			matrix_L = diagonal_matrix - matrix
 			if kernel == 'el' #Exponential Laplacian diffusion kernel(active). F Fouss 2012 | doi: 10.1016/j.neunet.2012.03.001
 			    beta = 0.02
@@ -474,23 +479,23 @@ class Network
 			elsif kernel == 'ct' # Commute time kernel (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
 			    matrix_result = matrix_L.pinv # Anibal saids that this kernel was normalized. Why?. Paper do not seem to describe this operation for ct, it describes for Kvn or for all kernels, it is not clear.
 			elsif kernel == 'rf' # Random forest kernel. J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
-			    matrix_result = (NMatrix.eye(dimension_elements, dtype: :float32) + matrix_L).invert! #Krf = (I +L ) ^ −1
+			    matrix_result = (NMatrix.eye(dimension_elements, dtype: @matrix_byte_format) + matrix_L).invert! #Krf = (I +L ) ^ −1
 			elsif kernel.include?('vn') # von Neumann diffusion kernel. J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
 			    alpha = kernel.gsub('vn', '').to_f * matrix.max_eigenvalue ** -1  # alpha = impact_of_penalization (1, 0.5 or 0.1) * spectral radius of A. spectral radius of A = absolute value of max eigenvalue of A 
-			    matrix_result = (NMatrix.eye(dimension_elements, dtype: :float32) - matrix * alpha ).invert! #  (I -alphaA ) ^ −1
+			    matrix_result = (NMatrix.eye(dimension_elements, dtype: @matrix_byte_format) - matrix * alpha ).invert! #  (I -alphaA ) ^ −1
 			elsif kernel.include?('rl') # Regularized Laplacian kernel matrix (active)
 			    alpha = kernel.gsub('rl', '').to_f * matrix.max_eigenvalue ** -1  # alpha = impact_of_penalization (1, 0.5 or 0.1) * spectral radius of A. spectral radius of A = absolute value of max eigenvalue of A
-			    matrix_result = (NMatrix.eye(dimension_elements, dtype: :float32) + matrix_L * alpha ).invert! #  (I + alphaL ) ^ −1
+			    matrix_result = (NMatrix.eye(dimension_elements, dtype: @matrix_byte_format) + matrix_L * alpha ).invert! #  (I + alphaL ) ^ −1
 			elsif kernel == 'me' # Markov exponential diffusion kernel (active). G Zampieri 2018 | doi.org/10.1186/s12859-018-2025-5 . Taken from compute_kernel script
 				beta=0.04
 				#(beta/N)*(N*I - D + A)
-				id_mat = NMatrix.eye(dimension_elements, dtype: :float32)
+				id_mat = NMatrix.eye(dimension_elements, dtype: @matrix_byte_format)
 				m_matrix = (id_mat * dimension_elements - diagonal_matrix + matrix ) * (beta/dimension_elements)
 				matrix_result = expm(m_matrix)
 			end
 		elsif kernel == 'ka' # Kernelized adjacency matrix (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
 			lambda_value = matrix.min_eigenvalue
-			matrix_result = matrix + NMatrix.eye(dimension_elements, dtype: :float32) * lambda_value.abs # Ka = A + lambda*I # lambda = the absolute value of the smallest eigenvalue of A
+			matrix_result = matrix + NMatrix.eye(dimension_elements, dtype: @matrix_byte_format) * lambda_value.abs # Ka = A + lambda*I # lambda = the absolute value of the smallest eigenvalue of A
 		elsif kernel.include?('md') # Markov diffusion kernel matrix. G Zampieri 2018 | doi.org/10.1186/s12859-018-2025-5 . Taken from compute_kernel script
 			t = kernel.gsub('md', '').to_i
 			col_sum = matrix.sum(1)
@@ -532,7 +537,7 @@ class Network
 	    		adjacency_vector.concat(line.split(splitChar).map{|c| c.to_f })
 		    	dimension_elements += 1
 		end
-		matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector) # Create working matrix
+		matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, @matrix_byte_format) # Create working matrix
 		return matrix
 	end
 
@@ -573,11 +578,11 @@ class Network
 	
 	def graphWeights (rowsNumber, colsNumber, inputMatrix, lambdaValue = 0.5)
 		invMatrix = inputMatrix.sum(0).map{|e| 1.0/ e}
-	 	diagonalColSums = NMatrix.diag(invMatrix)
+	 	diagonalColSums = NMatrix.diag(invMatrix, @matrix_byte_format)
 	 	rowsSums = inputMatrix.sum(1).to_flat_a
-	 	ky = NMatrix.new([rowsNumber, rowsNumber], rowsSums).map{|e| e ** lambdaValue } 	
+	 	ky = NMatrix.new([rowsNumber, rowsNumber], rowsSums, @matrix_byte_format).map{|e| e ** lambdaValue } 	
 	 	invertLambdaVal = (1 - lambdaValue)
-	 	kx = NMatrix.new([rowsNumber, rowsNumber], rowsSums).transpose.map{|e| e ** invertLambdaVal } 
+	 	kx = NMatrix.new([rowsNumber, rowsNumber], rowsSums, @matrix_byte_format).transpose.map{|e| e ** invertLambdaVal } 
 	 	nx = (ky * kx).map{|e| 1.0/ e}
 	 	weigth = (inputMatrix.dot(diagonalColSums)).transpose
 	 	weigth = inputMatrix.dot(weigth)

@@ -102,6 +102,10 @@ OptionParser.new do |opts|
     options[:normalize_kernel] = true
   end
 
+  options[:byte_format] = :float64
+  opts.on( '-b', '--byte_format STRING', 'Format of the numeric values stored in matrix. Default: float64, warning set this to less precission can modify computation results using this matrix.' ) do |opt|
+      options[:byte_format] = opt.to_sym
+  end
 end.parse!
 
 ##########################
@@ -110,6 +114,7 @@ end.parse!
 
 fullNet = Network.new(options[:layers].map{|layer| layer.first})
 fullNet.set_compute_pairs(options[:use_pairs])
+fullNet.set_matrix_byte_format(options[:byte_format])
 #puts options[:layers].map{|layer| layer.first}.inspect
 puts "Loading network data"
 if options[:input_format] == 'pair'
