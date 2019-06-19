@@ -75,44 +75,89 @@ class NMatrix
 	end
 
 	def expm
-		# Pade aproximation: https://github.com/rngantner/Pade_PyCpp/blob/master/src/expm.py
-		a_l1 = max_norm
-		n_squarings = 0
-		if self.dtype == :float64 || self.dtype == :complex128
-			if a_l1 < 1.495585217958292e-002
-				u,v = _pade3(self)
-	        elsif a_l1 < 2.539398330063230e-001
-				u,v = _pade5(self)
-	        elsif a_l1 < 9.504178996162932e-001
-				u,v = _pade7(self)
-	        elsif a_l1 < 2.097847961257068e+000
-				u,v = _pade9(self)
-			else
-				maxnorm = 5.371920351148152
-				n_squarings = [0, Math.log2(a_l1 / maxnorm).ceil].max
-				mat = self / 2**n_squarings
-				u,v = _pade13(mat)
-			end
-		elsif self.dtype == :float32 || self.dtype == :complex64
-			if a_l1 < 4.258730016922831e-001
-				u,v = _pade3(self)
-		    elsif a_l1 < 1.880152677804762e+000
-				u,v = _pade5(self)
-			else
-				maxnorm = 3.925724783138660
-				n_squarings = [0, Math.log2(a_l1 / maxnorm).ceil].max
-				mat = self / 2**n_squarings
-				u,v = _pade7(mat)
-			end
-		end
-		p = u + v
-		q = -u + v
-		r = q.solve(p)
-		n_squarings.times do
-			r = r.dot(r)
-		end
-		return r
-		# Exact performance
+		return compute_py_method{|mat| expm(mat)}
+		#return compute_py_method(self){|mat| expm(mat)}
+		##################################################
+		# matlab pade aproximation 
+		################################################
+		### toolbox/matlab/demos/expmdemo1.m (Golub and Van Loan, Matrix Computations, Algorithm 11.3-1.)		
+		
+		#fraction, exponent = Math.frexp(max_norm)
+		#s = [0, exponent+1].max
+		#a = self/2**s
+
+		## Pade approximation for exp(A)
+		#x = a
+		#c = 0.5
+		#ac = a*c
+		#e = NMatrix.identity(a.shape, dtype: a.dtype) + ac
+		#d = NMatrix.identity(a.shape, dtype: a.dtype) - ac
+		#q = 6
+		#p = true
+		#(2..q).each do |k|
+		#	c = c * (q-k+1) / (k*(2*q-k+1))
+		#	x = a.dot(x)
+		#	cX =  x * c
+		#	e = e + cX
+		#	if p
+		#		d = d + cX
+		#	else
+		#		d = d - cX
+		#	end
+		#	p = !p
+		#end
+		#e = d.solve(e) #solve
+
+		## Undo scaling by repeated squaring
+		#(1..s).each do
+		#	e = e.dot(e) 
+		#end
+		#return e
+
+		###################################
+		## Old python Pade aproximation
+		###################################
+		#### Pade aproximation: https://github.com/rngantner/Pade_PyCpp/blob/master/src/expm.py
+		#a_l1 = max_norm
+		#n_squarings = 0
+		#if self.dtype == :float64 || self.dtype == :complex128
+		#	if a_l1 < 1.495585217958292e-002
+		#		u,v = _pade3(self)
+	        #elsif a_l1 < 2.539398330063230e-001
+		#		u,v = _pade5(self)
+	        #elsif a_l1 < 9.504178996162932e-001
+		#		u,v = _pade7(self)
+	        #elsif a_l1 < 2.097847961257068e+000
+		#		u,v = _pade9(self)
+		#	else
+		#		maxnorm = 5.371920351148152
+		#		n_squarings = [0, Math.log2(a_l1 / maxnorm).ceil].max
+		#		mat = self / 2**n_squarings
+		#		u,v = _pade13(mat)
+		#	end
+		#elsif self.dtype == :float32 || self.dtype == :complex64
+		#	if a_l1 < 4.258730016922831e-001
+		#		u,v = _pade3(self)
+		#    elsif a_l1 < 1.880152677804762e+000
+		#		u,v = _pade5(self)
+		#	else
+		#		maxnorm = 3.925724783138660
+		#		n_squarings = [0, Math.log2(a_l1 / maxnorm).ceil].max
+		#		mat = self / 2**n_squarings
+		#		u,v = _pade7(mat)
+		#	end
+		#end
+		#p = u + v
+		#q = -u + v
+		#r = q.solve(p)
+		#n_squarings.times do
+		#	r = r.dot(r)
+		#end
+		#return r
+
+		######################
+		# Exact computing
+		######################
 		#####expm(matrix) = V*diag(exp(diag(D)))/V; V => eigenvectors(right), D => eigenvalues (right). # https://es.mathworks.com/help/matlab/ref/expm.html
 		#eigenvalues, eigenvectors = NMatrix::LAPACK.geev(self, :right)
 		#eigenvalues.map!{|val| Math.exp(val)}
@@ -134,6 +179,31 @@ class NMatrix
 	
 
 	private
+
+	def compute_py_method
+		require 'pycall/import'
+		self.class.class_eval do # To include Pycall into NMatrix
+			include PyCall::Import
+		end
+		#Python
+		pyfrom 'scipy.linalg', import: :expm
+		pyimport :numpy, as: :np
+
+		b = np.array(self.to_a)
+		a = yield(b) # Code block from ruby with python code
+		#a = expm(b)
+		##
+
+		result_matrix =  NMatrix.zeros(self.shape, dtype: self.dtype)
+		length = self.shape[0]
+		length.times do |i|
+			length.times do |j|
+				result_matrix[i,j] = a[i,j]
+			end
+		end
+		return result_matrix
+	end
+
 	def _pade3(a)
 		b = [120.0, 60.0, 12.0, 1.0]
 		a2 = a.dot(a)
