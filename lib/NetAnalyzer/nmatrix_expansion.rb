@@ -179,6 +179,14 @@ class NMatrix
 	
 
 	private
+	def copy_array_like(ary1, ary2)
+		length = ary2.shape[0] #ruby nmatrix
+		length.times do |i|
+			length.times do |j|
+				ary2[i,j] = ary1[i,j] #python array
+			end
+		end
+	end
 
 	def compute_py_method
 		require 'pycall/import'
@@ -189,18 +197,16 @@ class NMatrix
 		pyfrom 'scipy.linalg', import: :expm
 		pyimport :numpy, as: :np
 
-		b = np.array(self.to_a)
-		a = yield(b) # Code block from ruby with python code
-		#a = expm(b)
+		b = np.empty(self.shape)	
+		copy_array_like(self, b)
+		PyCall.without_gvl do
+			a = yield(b) # Code block from ruby with python code
+			#a = expm(b)
+		end
 		##
 
 		result_matrix =  NMatrix.zeros(self.shape, dtype: self.dtype)
-		length = self.shape[0]
-		length.times do |i|
-			length.times do |j|
-				result_matrix[i,j] = a[i,j]
-			end
-		end
+		copy_array_like(a, result_matrix)
 		return result_matrix
 	end
 
