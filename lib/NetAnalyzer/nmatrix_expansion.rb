@@ -1,6 +1,7 @@
 require 'nmatrix'
 require 'nmatrix/lapacke'
 require 'cmath'
+#require 'pp'
 
 class NMatrix
 	def div(second_mat) #Matrix division A/B => A.dot(B.pinv) #https://stackoverflow.com/questions/49225693/matlab-matrix-division-into-python
@@ -199,6 +200,7 @@ class NMatrix
 
 		b = np.empty(self.shape)	
 		copy_array_like(self, b)
+		a = nil
 		PyCall.without_gvl do
 			a = yield(b) # Code block from ruby with python code
 			#a = expm(b)

@@ -1,7 +1,7 @@
 require 'nodes'
 require 'nmatrix'
 require 'nmatrix/lapacke'
-require 'pp'
+#require 'pp'
 require 'bigdecimal'
 require 'benchmark'
 require 'nmatrix_expansion'
