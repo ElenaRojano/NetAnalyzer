@@ -113,7 +113,7 @@ end.parse!
 ##########################
 
 fullNet = Network.new(options[:layers].map{|layer| layer.first})
-fullNet.set_compute_pairs(options[:use_pairs])
+fullNet.set_compute_pairs(options[:use_pairs], !options[:no_autorelations])
 fullNet.set_matrix_byte_format(options[:byte_format])
 #puts options[:layers].map{|layer| layer.first}.inspect
 puts "Loading network data"
@@ -144,10 +144,6 @@ if !options[:meth].nil?
 			options[:use_layers][1].first, 
 			options[:meth])
 	end
-  if options[:no_autorelations]
-  	puts 'Clean autorelations'  
-  	fullNet.clean_autorelations_on_association_values
-  end
 	File.open(options[:assoc_file], 'w') do |f|
 		fullNet.association_values[options[:meth]].each do |val|
 			f.puts val.join("\t")

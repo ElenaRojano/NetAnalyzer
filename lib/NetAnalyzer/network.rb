@@ -21,11 +21,13 @@ class Network
 		@association_values = {}
 		@control_connections = {}
 		@compute_pairs = :conn
+		@compute_autorelations = true
 		@matrix_byte_format = :float64
 	end
 
-	def set_compute_pairs(use_pairs)
+	def set_compute_pairs(use_pairs, get_autorelations)
 		@compute_pairs = use_pairs
+		@compute_autorelations = get_autorelations
 	end
 
 	def set_matrix_byte_format(matrix_format)
@@ -103,41 +105,72 @@ class Network
 	def get_all_pairs(args = {})
 		default = {:layers => :all}
 		args = default.merge(args)
-		if args[:layers] == :all
-			nodeIDs = @nodes.keys
-		else
-			nodeIDs = []
-			args[:layers].each do |layer|
-				nodeIDs.concat(@nodes.select{|id, node| node.type == layer}.keys)
-			end
-		end
-
-		if @compute_pairs == :all
-			while !nodeIDs.empty?
-				node1 = nodeIDs.shift
-				nodeIDs.each do |node2|
-					yield(node1, node2)
-				end
-			end
-		elsif @compute_pairs == :conn
-			processed_node_ids = {}
-			while !nodeIDs.empty?
-				node1 = nodeIDs.shift
-				ids_connected_to_n1 = @edges[node1]
-				nodeIDs.each do |node2|
-					if processed_node_ids[node2].nil?
-						ids_connected_to_n2 = @edges[node2]
-						if !ids_connected_to_n1.nil? && 
-							!ids_connected_to_n2.nil? && 
-							!(ids_connected_to_n1 & ids_connected_to_n2).empty? # check that at least exists one node that connect to n1 and n2
-							yield(node1, node2)
-						end
+		nodeIDsA, nodeIDsB = collect_nodes(args)
+		if @compute_autorelations
+			if @compute_pairs == :all
+				while !nodeIDsA.empty?
+					node1 = nodeIDsA.shift
+					nodeIDsA.each do |node2|
+						yield(node1, node2)
 					end
 				end
-				processed_node_ids[node1] = true
+			elsif @compute_pairs == :conn
+				processed_node_ids = {}
+				while !nodeIDsA.empty?
+					node1 = nodeIDsA.shift
+					ids_connected_to_n1 = @edges[node1]
+					nodeIDsA.each do |node2|
+						if processed_node_ids[node2].nil?
+							ids_connected_to_n2 = @edges[node2]
+							if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
+								yield(node1, node2)
+							end
+						end
+					end
+					processed_node_ids[node1] = true
+				end
 			end
+		else
+			if @compute_pairs == :conn
+				processed_node_ids = {}
+				nodeIDsA.each do |node1|
+					ids_connected_to_n1 = @edges[node1]
+					nodeIDsB.each do |node2|
+						if processed_node_ids[node2].nil?
+							ids_connected_to_n2 = @edges[node2]
+							if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
+								yield(node1, node2)
+							end
+						end
+					end
+					processed_node_ids[node1] = true
+				end
+			end
+
 		end
 	end
+
+	def collect_nodes(args)
+		nodeIDsA = nil
+		nodeIDsB = nil
+		if @compute_autorelations
+			if args[:layers] == :all
+				nodeIDsA = @nodes.keys
+			else
+				nodeIDsA = []
+				args[:layers].each do |layer|
+					nodeIDsA.concat(@nodes.select{|id, node| node.type == layer}.keys)
+				end
+			end
+		else
+			if args[:layers] != :all
+				nodeIDsA = @nodes.select{|id, node| node.type == args[:layers][0]}.keys
+				nodeIDsB = @nodes.select{|id, node| node.type == args[:layers][1]}.keys
+			end
+		end
+		return nodeIDsA, nodeIDsB
+	end
+
 
 	def get_nodes_layer(layers)
 		#for creating ny value in hypergeometric and pcc index
@@ -539,6 +572,16 @@ class Network
 		end
 		matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, @matrix_byte_format) # Create working matrix
 		return matrix
+	end
+
+ 	def exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
+		res = false
+		if !ids_connected_to_n1.nil? && 
+			!ids_connected_to_n2.nil? && 
+			!(ids_connected_to_n1 & ids_connected_to_n2).empty? # check that at least exists one node that connect to n1 and n2
+			res = true
+		end
+		return res
 	end
 
 	def set_layer(layer_definitions, node_name)
