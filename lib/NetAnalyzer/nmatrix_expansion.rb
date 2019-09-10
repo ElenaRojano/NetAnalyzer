@@ -1,6 +1,7 @@
 require 'nmatrix'
 require 'nmatrix/lapacke'
 require 'cmath'
+require 'time'
 #require 'pp'
 
 class NMatrix
@@ -197,18 +198,24 @@ class NMatrix
 		#Python
 		pyfrom 'scipy.linalg', import: :expm
 		pyimport :numpy, as: :np
-
-		b = np.empty(self.shape)	
+	
+		b = np.empty(self.shape)
+		STDERR.puts "Start cpy rb in py array #{Time.now}"		
 		copy_array_like(self, b)
+		STDERR.puts "Finish cpy rb in py array #{Time.now}"		
 		a = nil
+		STDERR.puts "Start computing #{Time.now}"		
 		PyCall.without_gvl do
 			a = yield(b) # Code block from ruby with python code
 			#a = expm(b)
 		end
 		##
+		STDERR.puts "Finish computing #{Time.now}"		
 
+		STDERR.puts "Start cpy py in rb array #{Time.now}"		
 		result_matrix =  NMatrix.zeros(self.shape, dtype: self.dtype)
 		copy_array_like(a, result_matrix)
+		STDERR.puts "Finish cpy py in rb array #{Time.now}"		
 		return result_matrix
 	end
 

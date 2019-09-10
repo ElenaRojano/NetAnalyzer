@@ -205,7 +205,7 @@ class Network
 				end
 			end
 		end
-		matrix = NMatrix.new([layerAidNodes.length, layerBidNodes.length], adjacency_matrix)
+		matrix = NMatrix.new([layerAidNodes.length, layerBidNodes.length], adjacency_matrix, dtype: @matrix_byte_format)
 		all_info_matrix = [matrix, layerAidNodes, layerBidNodes]
 		@adjacency_matrices[[layerA, layerB]] = all_info_matrix
 		return all_info_matrix
@@ -570,7 +570,8 @@ class Network
 	    		adjacency_vector.concat(line.split(splitChar).map{|c| c.to_f })
 		    	dimension_elements += 1
 		end
-		matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, @matrix_byte_format) # Create working matrix
+		#matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, dtype: @matrix_byte_format) # Create working matrix
+		matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector) # Create working matrix
 		return matrix
 	end
 
@@ -620,13 +621,35 @@ class Network
 	end
 	
 	def graphWeights (rowsNumber, colsNumber, inputMatrix, lambdaValue = 0.5)
-		invMatrix = inputMatrix.sum(0).map{|e| 1.0/ e}
-	 	diagonalColSums = NMatrix.diag(invMatrix, @matrix_byte_format)
+		invMatrix = inputMatrix.sum(0)#.map{|e| 1.0/ e}
+		invMatrix.cols.times do |n|
+			invMatrix[0, n] = 1.0/ invMatrix[0, n]
+		end
+	 	diagonalColSums = NMatrix.diag(invMatrix)
 	 	rowsSums = inputMatrix.sum(1).to_flat_a
-	 	ky = NMatrix.new([rowsNumber, rowsNumber], rowsSums, @matrix_byte_format).map{|e| e ** lambdaValue } 	
+	 	#ky = NMatrix.new([rowsNumber, rowsNumber], rowsSums).map{|e| e ** lambdaValue } 	
+	 	ky = NMatrix.new([rowsNumber, rowsNumber], 0, dtype: @matrix_byte_format)
+	 	rowsNumber.times do |j|
+	 		rowsNumber.times do |i|
+	 			ky[j,i] = rowsSums[i] ** lambdaValue
+	 		end
+	 	end
 	 	invertLambdaVal = (1 - lambdaValue)
-	 	kx = NMatrix.new([rowsNumber, rowsNumber], rowsSums, @matrix_byte_format).transpose.map{|e| e ** invertLambdaVal } 
-	 	nx = (ky * kx).map{|e| 1.0/ e}
+	 	#kx = NMatrix.new([rowsNumber, rowsNumber], rowsSums).transpose.map{|e| e ** invertLambdaVal } 
+	 	kx = NMatrix.new([rowsNumber, rowsNumber], rowsSums, dtype: @matrix_byte_format).transpose 
+	 	rowsNumber.times do |j|
+	 		rowsNumber.times do |i|
+	 			kx[j,i] = kx[j,i] ** invertLambdaVal
+	 		end
+	 	end
+
+	 	#nx = (ky * kx)#.map{|e| 1.0/ e}
+	 	nx = (ky * kx)#.map{|e| 1.0/ e}
+	 	rowsNumber.times do |j|
+	 		rowsNumber.times do |i|
+	 			nx[j,i] = 1.0/nx[j,i]
+	 		end
+	 	end
 	 	weigth = (inputMatrix.dot(diagonalColSums)).transpose
 	 	weigth = inputMatrix.dot(weigth)
 	 	weigth = nx * weigth
