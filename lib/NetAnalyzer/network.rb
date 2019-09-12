@@ -195,17 +195,16 @@ class Network
 	def generate_adjacency_matrix(layerA, layerB)
 		layerAidNodes = @nodes.select{|id, node| node.type == layerA}.keys
 		layerBidNodes = @nodes.select{|id, node| node.type == layerB}.keys
-		adjacency_matrix = []
-		layerAidNodes.each do |nodeA|
-			layerBidNodes.each do |nodeB|
+		matrix = NMatrix.new([layerAidNodes.length, layerBidNodes.length], 0, dtype: @matrix_byte_format)
+		layerAidNodes.each_with_index do |nodeA, i|
+			layerBidNodes.each_with_index do |nodeB, j|
 				if @edges[nodeB].include?(nodeA)
-					adjacency_matrix << 1
+					matrix[i, j] = 1
 				else
-					adjacency_matrix << 0
+					matrix[i, j] = 0
 				end
 			end
 		end
-		matrix = NMatrix.new([layerAidNodes.length, layerBidNodes.length], adjacency_matrix, dtype: @matrix_byte_format)
 		all_info_matrix = [matrix, layerAidNodes, layerBidNodes]
 		@adjacency_matrices[[layerA, layerB]] = all_info_matrix
 		return all_info_matrix
@@ -653,6 +652,7 @@ class Network
 	 	weigth = (inputMatrix.dot(diagonalColSums)).transpose
 	 	weigth = inputMatrix.dot(weigth)
 	 	weigth = nx * weigth
+
 	 	return weigth
 	end
 
