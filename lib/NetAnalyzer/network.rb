@@ -593,6 +593,7 @@ class Network
 					break
 				end
 			end
+			raise("The node '#{node_name}' not match with any layer regex") if layer.nil?			
 		else
 			layer = layer_definitions.first.first
 		end
