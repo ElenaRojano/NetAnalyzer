@@ -235,7 +235,7 @@ class Network
 		elsif meth == :csi #all networks
 			relations = get_csi_associations(layers, base_layer)
 		elsif meth == :transference #tripartite networks
-			relations = get_association_by_transference_resources(layers, base_layer)
+			relations = get_association_by_transference_resources(layers, base_layer, relations)
 		end
 		return relations
 	end
@@ -243,7 +243,7 @@ class Network
 	## association methods adjacency matrix based
 	#---------------------------------------------------------
 	# Alaimo 2014, doi: 10.3389/fbioe.2014.00071
-	def get_association_by_transference_resources(firstPairLayers, secondPairLayers, lambda_value1 = 0.5, lambda_value2 = 0.5)
+	def get_association_by_transference_resources(firstPairLayers, secondPairLayers, lambda_value1 = 0.5, lambda_value2 = 0.5, relations)
 		matrix1 = @adjacency_matrices[firstPairLayers].first
 		rowIds = @adjacency_matrices[firstPairLayers][1]
 		matrix2 = @adjacency_matrices[secondPairLayers].first
@@ -257,7 +257,12 @@ class Network
 		matrix2Weight = graphWeights(m2colNumber, m2rowNumber, matrix2.transpose, lambda_value2)
 		matrixWeightProduct = matrix1Weight.dot(matrix2.dot(matrix2Weight))
 		finalMatrix = matrix1.dot(matrixWeightProduct)
-		relations = nmatrix2relations(finalMatrix, rowIds, colIds)
+		all_relations = nmatrix2relations(finalMatrix, rowIds, colIds)
+		all_relations.each do |rel|
+			if rel.last > 0.0
+				relations << rel
+			end
+		end
 		@association_values[:transference] = relations
 		return relations
 	end
