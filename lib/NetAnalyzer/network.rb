@@ -525,7 +525,7 @@ class Network
 				#(beta/N)*(N*I - D + A)
 				id_mat = NMatrix.eye(dimension_elements, dtype: @matrix_byte_format)
 				m_matrix = (id_mat * dimension_elements - diagonal_matrix + matrix ) * (beta/dimension_elements)
-				matrix_result = expm(m_matrix)
+				matrix_result = m_matrix.expm
 			end
 		elsif kernel == 'ka' # Kernelized adjacency matrix (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
 			lambda_value = matrix.min_eigenvalue
