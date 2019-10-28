@@ -1,6 +1,9 @@
 require 'nodes'
-require 'nmatrix'
-require 'nmatrix/lapacke'
+#require 'nmatrix'
+#require 'nmatrix/lapacke'
+require 'numo/narray'
+require 'numo/linalg'
+
 #require 'pp'
 require 'bigdecimal'
 require 'benchmark'
@@ -67,7 +70,7 @@ class Network
 
 	def load_network_by_bin_matrix(input_file, node_file, layers)
 		node_names = load_input_list(node_file)
-		@adjacency_matrices[layers.map{|l| l.first}] = [NMatrix.read(input_file), node_names, node_names]
+		@adjacency_matrices[layers.map{|l| l.first}] = [Marshal.load(File.binread(input_file)), node_names, node_names]
 	end
 
 	def load_network_by_plain_matrix(input_file, node_file, layers, splitChar)
@@ -195,7 +198,8 @@ class Network
 	def generate_adjacency_matrix(layerA, layerB)
 		layerAidNodes = @nodes.select{|id, node| node.type == layerA}.keys
 		layerBidNodes = @nodes.select{|id, node| node.type == layerB}.keys
-		matrix = NMatrix.new([layerAidNodes.length, layerBidNodes.length], 0, dtype: @matrix_byte_format)
+		#matrix = NMatrix.new([layerAidNodes.length, layerBidNodes.length], 0, dtype: @matrix_byte_format)
+		matrix = Numo::DFloat.zeros(layerAidNodes.length, layerBidNodes.length)
 		layerAidNodes.each_with_index do |nodeA, i|
 			layerBidNodes.each_with_index do |nodeB, j|
 				if @edges[nodeB].include?(nodeA)
@@ -249,17 +253,18 @@ class Network
 		rowIds = @adjacency_matrices[firstPairLayers][1]
 		matrix2 = @adjacency_matrices[secondPairLayers].first
 		colIds =  @adjacency_matrices[secondPairLayers][2]
-		m1rowNumber = matrix1.rows
-		m1colNumber = matrix1.cols
-		m2rowNumber = matrix2.rows
-		m2colNumber = matrix2.cols
+		# m1rowNumber = matrix1.rows
+		# m1colNumber = matrix1.cols
+		# m2rowNumber = matrix2.rows
+		# m2colNumber = matrix2.cols
+		m1rowNumber, m1colNumber = matrix1.shape
+		m2rowNumber, m2colNumber = matrix2.shape
 		#puts m1rowNumber, m1colNumber, m2rowNumber, m2colNumber
 		matrix1Weight = graphWeights(m1colNumber, m1rowNumber, matrix1.transpose, lambda_value1)
 		matrix2Weight = graphWeights(m2colNumber, m2rowNumber, matrix2.transpose, lambda_value2)
 		matrixWeightProduct = matrix1Weight.dot(matrix2.dot(matrix2Weight))
 		finalMatrix = matrix1.dot(matrixWeightProduct)
-		relations = nmatrix2relations(finalMatrix, rowIds, colIds)
-		relations.select!{|rel| rel.last > 0.0}
+		relations = matrix2relations(finalMatrix, rowIds, colIds)
 		@association_values[:transference] = relations
 		return relations
 	end
@@ -564,15 +569,21 @@ class Network
 	end
 
 	def load_matrix_file(input_file, splitChar = "\t")
-		dimension_elements = 0
-		adjacency_vector = []
+		matrix = nil
+		counter = 0
 		File.open(input_file).each do |line|
 		    	line.chomp!
-	    		adjacency_vector.concat(line.split(splitChar).map{|c| c.to_f })
-		    	dimension_elements += 1
+	    		row = line.split(splitChar).map{|c| c.to_f }
+	    		if matrix.nil?
+	    			matrix = Numo::DFloat.zeros(row.length, row.length)
+	    		end
+	    		row.each_with_index do |val, i|
+	    			matrix[counter, i] = val 
+	    		end
+	    		counter += 1
 		end
 		#matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, dtype: @matrix_byte_format) # Create working matrix
-		matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector) # Create working matrix
+		#matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_matrix) # Create working matrix
 		return matrix
 	end
 
@@ -623,48 +634,38 @@ class Network
 	end
 	
 	def graphWeights (rowsNumber, colsNumber, inputMatrix, lambdaValue = 0.5)
-		invMatrix = inputMatrix.sum(0)#.map{|e| 1.0/ e}
-		invMatrix.cols.times do |n|
-			invMatrix[0, n] = 1.0/ invMatrix[0, n]
-		end
-	 	diagonalColSums = NMatrix.diag(invMatrix)
-	 	rowsSums = inputMatrix.sum(1).to_flat_a
-	 	#ky = NMatrix.new([rowsNumber, rowsNumber], rowsSums).map{|e| e ** lambdaValue } 	
-	 	ky = NMatrix.new([rowsNumber, rowsNumber], 0, dtype: @matrix_byte_format)
+	 	ky = (1.0 / inputMatrix.sum(0)).diag #sum cols
+	 	kx = inputMatrix.sum(1) #sum rows
+	 	
+	 	kx_lamb = kx ** lambdaValue
+	 	kx_lamb_mat = Numo::DFloat.zeros(rowsNumber, rowsNumber)
 	 	rowsNumber.times do |j|
-	 		rowsNumber.times do |i|
-	 			ky[j,i] = rowsSums[i] ** lambdaValue
-	 		end
-	 	end
-	 	invertLambdaVal = (1 - lambdaValue)
-	 	#kx = NMatrix.new([rowsNumber, rowsNumber], rowsSums).transpose.map{|e| e ** invertLambdaVal } 
-	 	kx = NMatrix.new([rowsNumber, rowsNumber], rowsSums, dtype: @matrix_byte_format).transpose 
-	 	rowsNumber.times do |j|
-	 		rowsNumber.times do |i|
-	 			kx[j,i] = kx[j,i] ** invertLambdaVal
+	 		rowsNumber.times do |i|	 			
+	 			kx_lamb_mat[j,i] = kx_lamb[i]
 	 		end
 	 	end
 
-	 	#nx = (ky * kx)#.map{|e| 1.0/ e}
-	 	nx = (ky * kx)#.map{|e| 1.0/ e}
+	 	kx_inv_lamb = kx ** (1 - lambdaValue)
+	 	kx_inv_lamb_mat = Numo::DFloat.zeros(rowsNumber, rowsNumber)
 	 	rowsNumber.times do |j|
 	 		rowsNumber.times do |i|
-	 			nx[j,i] = 1.0/nx[j,i]
+	 			kx_inv_lamb_mat[i, j] = kx_inv_lamb[i]
 	 		end
 	 	end
-	 	weigth = (inputMatrix.dot(diagonalColSums)).transpose
+
+	 	nx = 1.0/(kx_lamb_mat * kx_inv_lamb_mat)
+	 	weigth = (inputMatrix.dot(ky)).transpose
 	 	weigth = inputMatrix.dot(weigth)
 	 	weigth = nx * weigth
-
 	 	return weigth
 	end
 
-	def nmatrix2relations(finalMatrix, rowIds, colIds)
+	def matrix2relations(finalMatrix, rowIds, colIds)
 		relations = []
 		rowIds.each_with_index do |rowId, rowPos|
 			colIds.each_with_index do |colId, colPos|
 				associationValue = finalMatrix[rowPos, colPos]
-				relations << [rowId, colId, associationValue]
+				relations << [rowId, colId, associationValue] if associationValue > 0
 			end
 		end
 		return relations
