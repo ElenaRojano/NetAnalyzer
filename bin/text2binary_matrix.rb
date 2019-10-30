@@ -2,22 +2,30 @@
 
 require 'benchmark'
 require 'optparse'
-require 'nmatrix'
+#require 'nmatrix'
+require 'numo/narray'
+require 'numo/linalg'
+
 #require 'pp'
 #############################################################################
 ## METHODS
 ##############################################################################
 
-def load_matrix_file(source, byte_format = :float32)
-    dimension_elements = 0
-    adjacency_vector = []
-    source.each do |line|
-            line.chomp!
-            adjacency_vector.concat(line.split("\t").map{|c| c.to_f })
-            dimension_elements += 1
-    end
-    matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, dtype: byte_format) # Create working matrix
-    return matrix
+def load_matrix_file(input_file, splitChar = "\t")
+	matrix = nil
+	counter = 0
+	File.open(input_file).each do |line|
+	    	line.chomp!
+    		row = line.split(splitChar).map{|c| c.to_f }
+    		if matrix.nil?
+    			matrix = Numo::DFloat.zeros(row.length, row.length)
+    		end
+    		row.each_with_index do |val, i|
+    			matrix[counter, i] = val 
+    		end
+    		counter += 1
+	end
+	return matrix
 end
 
 def load_pair_file(source, byte_format = :float32)
@@ -29,7 +37,7 @@ def load_pair_file(source, byte_format = :float32)
 		add_pair(node_b, node_a, weight, connections)
 	end
 	names = connections.keys
-	matrix = NMatrix.new( names.length, 0.0, dtype: byte_format)
+	matrix = Numo::DFloat.zeros(names.length, names.length)
 	count = 0
 	connections.each do |nodeA, subhash|
 		index_A = names.index(nodeA)
@@ -55,6 +63,7 @@ end
 
 def get_stats(matrix)
 	stats = []
+	#TODO: trnasform to Numo::Array operations
 	primary_stats = get_primary_stats(matrix)
 	stats << ['Matrix - Symmetric?', matrix.symmetric?]
 	stats << ['Matrix - Dimensions', matrix.shape.join('x')]
@@ -244,16 +253,16 @@ else
 end
 
 if options[:input_type] == 'bin'
-	matrix = NMatrix.read(options[:input_file]) # the method needs a path not a IO object 
+	matrix = Marshal.load(File.binread(options[:input_file])) # the method needs a path not a IO object 
 elsif options[:input_type] == 'matrix'
-	matrix = load_matrix_file(source, options[:byte_format])
+	matrix = load_matrix_file(source)
 elsif options[:input_type] == 'pair'
 	matrix, names = load_pair_file(source, options[:byte_format])
 	File.open(options[:output_matrix_file]+'.lst', 'w'){|f| f.print names.join("\n")}
 end
 
 if options[:set_diagonal]
-	elements = matrix.cols
+	elements = matrix.shape.last
 	elements.times do |n|
 		matrix[n, n] = 1.0
 	end
@@ -267,7 +276,7 @@ if options[:stats]
 end
 
 if options[:output_type] == 'bin'	
-	matrix.write(options[:output_matrix_file])
+	File.binwrite(options[:output_matrix_file], Marshal.dump(matrix))
 elsif options[:output_type] == 'mat'
 	File.open(options[:output_matrix_file], 'w') do |f|
 		matrix.each_row do |r|
