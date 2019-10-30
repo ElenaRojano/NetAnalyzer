@@ -14,9 +14,9 @@ module Numo
 		end
 
 		def div_by_vector(vector, by=:col)
-			new_matrix =  NMatrix.zeros(self.shape, dtype: self.dtype)
+			new_matrix =  self.new_zeros
 			if by == :col
-				self.cols.times do |n|
+				self.shape.last.times do |n|
 					vector.each_with_indices do |val, i, j|
 						new_matrix[i, n] = self[i, n].fdiv(val)
 					end

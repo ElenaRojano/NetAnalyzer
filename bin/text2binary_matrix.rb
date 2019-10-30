@@ -65,7 +65,7 @@ def get_stats(matrix)
 	stats = []
 	#TODO: trnasform to Numo::Array operations
 	primary_stats = get_primary_stats(matrix)
-	stats << ['Matrix - Symmetric?', matrix.symmetric?]
+	#stats << ['Matrix - Symmetric?', matrix.symmetric?]
 	stats << ['Matrix - Dimensions', matrix.shape.join('x')]
 	stats << ['Matrix - Elements', primary_stats[:count]]
 	stats << ['Matrix - Elements Non Zero', primary_stats[:countNonZero]]
@@ -109,15 +109,15 @@ def get_stats(matrix)
 end
 
 def get_connection_number(matrix)
-	connections = NMatrix.new([1, matrix.cols], 0, dtype: :float32)
-	i = 0
-	matrix.each_column do |column|
+	rows, cols = matrix.shape
+	connections = Numo::DFloat.zeros(1, cols)
+	cols.times do |i|
+		column = matrix[true, i] 
 		count = 0
 		column.each do |value|
 			count += 1 if value != 0
 		end
-		connections[0, i] = count - 1
-		i += 1
+		connections[0, i] = count - 1 # the connection with self is removed
 	end
 	return connections
 end
