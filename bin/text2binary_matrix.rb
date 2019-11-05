@@ -279,7 +279,7 @@ if options[:output_type] == 'bin'
 	File.binwrite(options[:output_matrix_file], Marshal.dump(matrix))
 elsif options[:output_type] == 'mat'
 	File.open(options[:output_matrix_file], 'w') do |f|
-		matrix.each_row do |r|
+		matrix.each_over_axis(0) do |r|
 			f.puts r.to_a.join("\t")
 		end
 	end

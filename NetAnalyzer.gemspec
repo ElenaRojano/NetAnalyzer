@@ -23,7 +23,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_dependency "numo-linalg"
-  spec.add_dependency "numo-array"
+  spec.add_dependency "numo-narray"
   spec.add_dependency "pp"
   spec.add_dependency "pycall"
   spec.add_dependency "bigdecimal"

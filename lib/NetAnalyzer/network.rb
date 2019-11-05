@@ -57,7 +57,6 @@ class Network
 	end
 
 	def load_network_by_pairs(file, layers, split_character="\t")
-		#File.open(file).each("\n") do |line| # old bug from io patching from lapacke gem
 		File.open(file).each do |line|
 			line.chomp!
 			pair = line.split(split_character)
@@ -70,6 +69,7 @@ class Network
 	end
 
 	def load_network_by_bin_matrix(input_file, node_file, layers)
+		# Take into acount https://github.com/ankane/npy to load and read mats
 		node_names = load_input_list(node_file)
 		@adjacency_matrices[layers.map{|l| l.first}] = [Marshal.load(File.binread(input_file)), node_names, node_names]
 	end
@@ -580,8 +580,6 @@ class Network
 	    		end
 	    		counter += 1
 		end
-		#matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_vector, dtype: @matrix_byte_format) # Create working matrix
-		#matrix = NMatrix.new([dimension_elements, dimension_elements], adjacency_matrix) # Create working matrix
 		return matrix
 	end
 
