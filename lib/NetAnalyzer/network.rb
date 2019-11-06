@@ -510,7 +510,7 @@ class Network
 			matrix_L = diagonal_matrix - matrix
 			if kernel == 'el' #Exponential Laplacian diffusion kernel(active). F Fouss 2012 | doi: 10.1016/j.neunet.2012.03.001
 			    beta = 0.02
-			    beta_product = matrix_L * beta
+			    beta_product = matrix_L * -beta
 			    matrix_result = beta_product.expm
 			elsif kernel == 'ct' # Commute time kernel (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
 			    matrix_result = Numo::Linalg.pinv(matrix_L) # Anibal saids that this kernel was normalized. Why?. Paper do not seem to describe this operation for ct, it describes for Kvn or for all kernels, it is not clear.
