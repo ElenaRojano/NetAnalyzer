@@ -26,5 +26,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "numo-narray"
   spec.add_dependency "pp"
   spec.add_dependency "pycall"
+  spec.add_dependency "npy"
   spec.add_dependency "bigdecimal"
 end

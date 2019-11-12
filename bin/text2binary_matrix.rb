@@ -5,6 +5,7 @@ require 'optparse'
 #require 'nmatrix'
 require 'numo/narray'
 require 'numo/linalg'
+require 'npy'
 
 #require 'pp'
 #############################################################################
@@ -253,7 +254,8 @@ else
 end
 
 if options[:input_type] == 'bin'
-	matrix = Marshal.load(File.binread(options[:input_file])) # the method needs a path not a IO object 
+	matrix = Npy.load(options[:input_file])
+	#matrix = Marshal.load(File.binread(options[:input_file])) # the method needs a path not a IO object 
 elsif options[:input_type] == 'matrix'
 	matrix = load_matrix_file(source)
 elsif options[:input_type] == 'pair'
@@ -276,7 +278,8 @@ if options[:stats]
 end
 
 if options[:output_type] == 'bin'	
-	File.binwrite(options[:output_matrix_file], Marshal.dump(matrix))
+	#File.binwrite(options[:output_matrix_file], Marshal.dump(matrix))
+	Npy.save(options[:output_matrix_file], matrix)
 elsif options[:output_type] == 'mat'
 	File.open(options[:output_matrix_file], 'w') do |f|
 		matrix.each_over_axis(0) do |r|

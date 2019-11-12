@@ -9,6 +9,7 @@ require 'bigdecimal'
 require 'benchmark'
 #require 'nmatrix_expansion'
 require 'numo_expansion'
+require 'npy'
 
 class Network
 
@@ -71,7 +72,8 @@ class Network
 	def load_network_by_bin_matrix(input_file, node_file, layers)
 		# Take into acount https://github.com/ankane/npy to load and read mats
 		node_names = load_input_list(node_file)
-		@adjacency_matrices[layers.map{|l| l.first}] = [Marshal.load(File.binread(input_file)), node_names, node_names]
+		#@adjacency_matrices[layers.map{|l| l.first}] = [Marshal.load(File.binread(input_file)), node_names, node_names]
+		@adjacency_matrices[layers.map{|l| l.first}] = [Npy.load(input_file), node_names, node_names]
 	end
 
 	def load_network_by_plain_matrix(input_file, node_file, layers, splitChar)
@@ -555,7 +557,8 @@ class Network
 	end
 
 	def write_kernel(layer2kernel, output_file)
-		File.binwrite(output_file, Marshal.dump(@kernels[layer2kernel]))
+		Npy.save(output_file, @kernels[layer2kernel])
+		#File.binwrite(output_file, Marshal.dump(@kernels[layer2kernel]))
 	end
 
 	## AUXILIAR METHODS
