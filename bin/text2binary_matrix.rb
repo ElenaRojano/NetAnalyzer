@@ -224,6 +224,11 @@ optparse = OptionParser.new do |opts|
         options[:set_diagonal] = true
     end
 
+    options[:binarize] = nil
+    opts.on( '-B', '--binarize FLOAT', 'Binarize matrix changin x >= thr to one and any other to zero into matrix given' ) do |opt|
+        options[:binarize] = opt.to_f
+    end
+
     options[:stats] = false
     opts.on( '-s', '--get_stats', 'Get stats from the processed matrix' ) do
         options[:stats] = true
@@ -267,6 +272,15 @@ if options[:set_diagonal]
 	elements = matrix.shape.last
 	elements.times do |n|
 		matrix[n, n] = 1.0
+	end
+end
+
+if !options[:binarize].nil?
+	elements = matrix.shape.last
+	elements.times do |i|
+		elements.times do |j|
+			matrix[i,j] = matrix[i,j] >= options[:binarize] ? 1 : 0
+		end
 	end
 end
 
