@@ -514,7 +514,7 @@ class Network
 			    beta = 0.02
 			    beta_product = matrix_L * -beta
 			    #matrix_result = beta_product.expm
-			    matrix_result = Numo::Linalg.expm(beta_product, 12)
+			    matrix_result = Numo::Linalg.expm(beta_product, 14)
 			elsif kernel == 'ct' # Commute time kernel (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
 			    matrix_result = Numo::Linalg.pinv(matrix_L) # Anibal saids that this kernel was normalized. Why?. Paper do not seem to describe this operation for ct, it describes for Kvn or for all kernels, it is not clear.
 			elsif kernel == 'rf' # Random forest kernel. J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
@@ -531,7 +531,7 @@ class Network
 				id_mat = Numo::DFloat.eye(dimension_elements)
 				m_matrix = (id_mat * dimension_elements - diagonal_matrix + matrix ) * (beta/dimension_elements)
 				#matrix_result = m_matrix.expm
-			    matrix_result = Numo::Linalg.expm(beta_product, 12)
+			    matrix_result = Numo::Linalg.expm(m_matrix, 16)
 			end
 		elsif kernel == 'ka' # Kernelized adjacency matrix (active). J.-K. Heriche 2014 | doi: 10.1091/mbc.E13-04-0221
 			lambda_value = matrix.min_eigenvalue
