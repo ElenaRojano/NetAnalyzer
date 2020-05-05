@@ -1,4 +1,5 @@
 require 'nodes'
+require 'gv'
 #require 'nmatrix'
 #require 'nmatrix/lapacke'
 require 'numo/narray'
@@ -11,15 +12,26 @@ require 'benchmark'
 require 'numo_expansion'
 require 'npy'
 
+#For javascrip plotting
+require 'erb'
+require 'base64'
+require 'json'
+require 'zlib'
+
+TEMPLATES = File.join(File.dirname(__FILE__), 'templates')
+
 class Network
 
-	attr_accessor :association_values, :control_connections, :kernels
+	attr_accessor :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes
 
 	## BASIC METHODS
 	############################################################
 	def initialize(layers)
-		@nodes = {} 
+		@nodes = {}
 		@edges = {}
+		@layers = []
+		@reference_nodes = []
+		@group_nodes = []
 		@adjacency_matrices = {}
 		@kernels = {}
 		@layers = layers
@@ -28,6 +40,9 @@ class Network
 		@compute_pairs = :conn
 		@compute_autorelations = true
 		@matrix_byte_format = :float64
+		@loaded_obos = []
+		@ontologies = []
+		@layer_ontologies = {}
 	end
 
 	def set_compute_pairs(use_pairs, get_autorelations)
@@ -86,18 +101,126 @@ class Network
 		return node_connections/2
 	end
 
-	def plot(output_filename, layout="dot")		
-		roboWrite = File.open(output_filename, 'w')
-		roboWrite.puts "digraph g {"
+	def plot_network(options = {})
+		if options[:method] == 'graphviz'
+			plot_dot(options)
+		elsif options[:method] == 'el_grapho'
+			renderered_template = ERB.new(File.open(File.join(TEMPLATES, 'el_grapho.erb')).read).result(binding)
+			File.open(options[:output_file] + '.html', 'w'){|f| f.puts renderered_template}
+		end	
+	end
+
+	def plot_dot(user_options = {}) # input keys: layout
+		options = {layout => "sfdp"}
+		options = options.merge(user_options)
+		graphviz_colors = %w[lightsteelblue1 lightyellow1 lightgray orchid2]
+		palette = {}
+		@layers.each do |layer|
+			palette[layer] = graphviz_colors.shift
+		end
+		graph = GV::Graph.open('g', type = :undirected)
+		plotted_edges = {}
 		@edges.each do |nodeID, associatedIDs|
 			associatedIDs.each do |associatedID|
-				roboWrite.puts "\"#{nodeID}\"->\"#{associatedID}\";"
+				pair = [nodeID, associatedID].sort.join('_').to_sym
+				if !plotted_edges[pair]
+					graph.edge 'e', 
+						graph.node(nodeID, label: '', style: 'filled', fillcolor: palette[@nodes[nodeID].type]), 
+						graph.node(associatedID, label: '', style: 'filled' , fillcolor: palette[@nodes[associatedID].type])
+					plotted_edges[pair] = true
+				end
 			end
 		end
-		roboWrite.puts "}"
-		roboWrite.close
-		cmd = "#{layout} -Tpng #{output_filename} -o #{output_filename}.png"
-		system(cmd)
+		@reference_nodes.each do |nodeID|
+			graph.node(nodeID, style: 'filled', fillcolor: 'firebrick1', label: '')
+		end
+		graphviz_border_colors = %w[blue darkorange red olivedrab4]
+		@group_nodes.each do |groupID, gNodes|
+			border_color = graphviz_border_colors.shift
+			gNodes.each do |nodeID|
+					graph.node(nodeID, color: border_color, penwidth: '10', label: '')
+			end
+		end
+		graph[:overlap] = false
+		STDERR.puts 'Save graph'
+		graph.save(options[:output_file] + '.png', format='png', layout=options[:layout])
+	end
+
+	def compute_group_metrics(output_filename)
+		metrics = []
+		header = ['group']
+		@group_nodes.keys.each do |k|
+			metrics << [k]
+		end
+		header << 'comparative_degree'
+		comparative_degree = compute_comparative_degree_in_precomputed_communities(@group_nodes)
+		comparative_degree.each_with_index{|val,i| metrics[i] << val}
+		if !@reference_nodes.empty?
+			header.concat(%w[node_com_assoc_by_edge node_com_assoc_by_node])
+			node_com_assoc = compute_node_com_assoc_in_precomputed_communities(@group_nodes, @reference_nodes.first)
+			node_com_assoc.each_with_index{|val,i| metrics[i].concat(val)}
+		end
+		File.open(output_filename, 'w') do |f|
+			f.puts header.join("\t")
+			metrics.each do |gr|
+				f. puts gr.join("\t")
+			end
+		end
+	end
+
+	def compute_comparative_degree_in_precomputed_communities(coms) 
+		comparative_degrees = []
+		coms.each do |com_id, com|
+			comparative_degrees << compute_comparative_degree(com)
+		end
+		return comparative_degrees
+	end
+
+	def compute_node_com_assoc_in_precomputed_communities(coms, ref_node)
+		node_com_assoc = []
+		coms.each do |com_id, com|
+			node_com_assoc << [compute_node_com_assoc(com, ref_node)]
+		end
+		return node_com_assoc
+	end
+
+	def compute_comparative_degree(com) # see Girvan-Newman Benchmark control parameter in http://networksciencebook.com/chapter/9#testing (communities chapter)
+		internal_degree = 0
+		external_degree = 0
+		com.each do |nodeID|
+			nodeIDneigh = @edges[nodeID]
+			next if nodeIDneigh.nil?
+			internal_degree += (nodeIDneigh & com).length
+			external_degree += (nodeIDneigh - com).length
+		end
+		comparative_degree = external_degree.fdiv(external_degree + internal_degree)
+		return comparative_degree
+	end
+
+	def compute_node_com_assoc(com, ref_node)
+		ref_cons = 0
+		ref_secondary_cons = 0
+		secondary_nodes = {}
+		other_cons = 0
+		other_nodes = {}
+
+		refNneigh = @edges[ref_node]
+		com.each do |nodeID|
+			nodeIDneigh = @edges[nodeID]
+			next if nodeIDneigh.nil?
+			ref_cons += 1 if nodeIDneigh.include?(ref_node)
+			if !refNneigh.nil?
+				common_nodes = nodeIDneigh & refNneigh
+				common_nodes.each {|id| secondary_nodes[id] = true}
+				ref_secondary_cons += common_nodes.length 
+			end
+			specific_nodes = nodeIDneigh - refNneigh - [ref_node]
+			specific_nodes.each {|id| other_nodes[id] = true}
+			other_cons += specific_nodes.length
+		end
+		by_edge = (ref_cons + ref_secondary_cons).fdiv(other_cons)
+		by_node = (ref_cons + secondary_nodes.length).fdiv(other_nodes.length)
+		return by_edge, by_node
 	end
 
 	def get_all_intersections
@@ -239,6 +362,12 @@ class Network
 			relations = get_pcc_associations(layers, base_layer)
 		elsif meth == :hypergeometric #all networks
 			relations = get_hypergeometric_associations(layers, base_layer)
+		elsif meth == :hypergeometric_bf #all networks
+			relations = get_hypergeometric_associations(layers, base_layer, :bonferroni)
+		elsif meth == :hypergeometric_bh #all networks
+			relations = get_hypergeometric_associations(layers, base_layer, :benjamini_hochberg)
+		elsif meth == :hypergeometric_elim #tripartite networks?
+			relations = get_hypergeometric_associations_with_topology(layers, base_layer, :elim)
 		elsif meth == :csi #all networks
 			relations = get_csi_associations(layers, base_layer)
 		elsif meth == :transference #tripartite networks
@@ -337,7 +466,7 @@ class Network
 		return relations
 	end
 
-	def get_hypergeometric_associations(layers, base_layer)
+	def get_hypergeometric_associations(layers, base_layer, pvalue_adj_method= nil)
 		ny = get_nodes_layer([base_layer]).length
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			minLength = [associatedIDs_node1.length, associatedIDs_node2.length].min
@@ -353,15 +482,112 @@ class Network
 					sum += binom_product.fdiv(hyper_denom)
 				end
 			end
-			if sum == 0
-				hypergeometricValue = 0
-			else
-				hypergeometricValue = -Math.log10(sum)
-			end
-			hypergeometricValue
+			sum
 		end
-		@association_values[:hypergeometric] = relations
+		if pvalue_adj_method == :bonferroni
+			meth = :hypergeometric_bf
+			compute_adjusted_pvalue_bonferroni(relations)
+		elsif pvalue_adj_method == :benjamini_hochberg
+			meth = :hypergeometric_bh
+			compute_adjusted_pvalue_benjaminiHochberg(relations)
+		else
+			meth = :hypergeometric
+			compute_log_transformation(relations)
+		end
+		@association_values[meth] = relations
 		return relations
+	end
+
+	def get_hypergeometric_associations_with_topology(layers, base_layer, mode, thresold = 0.01)
+		relations = []
+		reference_layer = (layers - @layer_ontologies.keys).first
+		ontology_layer = (layers - [reference_layer]).first
+		ref_nodes = @nodes.values.select{|node| node.type == reference_layer}.map{|node| node.id} # get nodes from NOT ontology layer
+		ref_nodes.each do |ref_node|
+			base_nodes, base_ontology_edges = get_base_nodes_and_edges(ref_node, base_layer, ontology_layer) # get shared nodes between nodes from NOT ontology layer and ONTOLOGY layer. Also get the conections between shared nodes and ontology nodes.
+			if !base_ontology_edges.empty?
+				penalized_nodes = {}
+				terms_levels = get_terms_levels(base_ontology_edges.keys, @layer_ontologies[ontology_layer])
+				levels = terms_levels.keys.sort
+				levels.reverse_each do |level|
+					terms_levels[level].each do |term|
+						term_base_nodes = @edges[term].map{|id| @nodes[id]}.select{|node| node.type == base_layer}
+						if mode == :elim && pval <= thresold
+							nodes_to_remove = nil #penalized_nodes[term]
+							nodes_to_remove = [] if nodes_to_remove.nil?
+							pval = get_fisher_exact_test(
+								base_nodes - nodes_to_remove, 
+								term_base_nodes - nodes_to_remove, 
+								((term_base_nodes | base_nodes) - nodes_to_remove).length)
+							parents = get_parents(term, ontology_layer) # Save the nodes for each parent term to remove them later in the fisher test
+							parents.each do |prnt|
+								query = penalized_nodes[prnt]
+								if query.nil?
+									penalized_nodes[prnt] = base_ontology_edges[term].clone # We need a new array to store the following iterations
+								else
+									query.concat(base_ontology_edges[term])
+								end
+							end
+						end
+						relations << [ref_node, term, pval]
+					end
+				end
+			end
+		end
+		if mode == :elim
+			meth = :hypergeometric_elim
+		end
+		@association_values[meth] = relations
+		return relations
+	end
+
+	def get_base_nodes_and_edges(ref_node, base_layer, side_layer)
+		base_nodes = @edges[ref_node].map{|id| @nodes[id]}.select{|node| node.type == base_layer}.map{|node| node.id}
+		base_side_edges = {}
+		base_nodes.each do |base_node| 
+			layer_nodes = @edges[base_node]
+			layer_nodes.each do |layer_node| 
+				if @nodes[layer_node].type == side_layer
+					query = base_side_edges[layer_node]
+					if query.nil?
+						base_side_edges[layer_node] = [base_node]
+					else
+						query << base_node
+					end
+				end
+			end
+		end
+		return base_nodes, base_side_edges
+	end
+
+	def compute_adjusted_pvalue(relations, log_val=true)
+		relations.each_with_index do |data, i| #p1, p2, pval
+			pval_adj = yield(data.last, i)		
+			pval_adj = -Math.log10(pval_adj) if log_val && pval_adj > 0
+			data[2] = pval_adj 
+		end
+	end
+
+	def compute_log_transformation(relations) #Only perform log transform whitout adjust pvalue. Called when adjusted method is not defined 
+		compute_adjusted_pvalue(relations) do |pval, index| 
+			pval
+		end
+	end
+
+	def compute_adjusted_pvalue_bonferroni(relations)
+		n_comparations = relations.length
+		compute_adjusted_pvalue(relations) do |pval, index|
+			adj = pval * n_comparations
+			adj = 1 if adj > 1
+			adj
+		end
+	end
+
+	def compute_adjusted_pvalue_benjaminiHochberg(relations)
+		adj_pvalues = get_benjaminiHochberg_pvalues(relations.map{|rel| rel.last})
+		compute_adjusted_pvalue(relations) do |pval, index|
+			adj_pvalues[index]
+		end
 	end
 
 	def add_record(hash, node1, node2)
@@ -563,6 +789,144 @@ class Network
 		#File.binwrite(output_file, Marshal.dump(@kernels[layer2kernel]))
 	end
 
+	def link_ontology(ontology_file_path, layer_name)
+		if !@loaded_obos.include?(ontology_file_path) #Load new ontology
+			ontology = load_ontology(ontology_file_path, full=true)
+			@loaded_obos << ontology_file_path
+			@ontologies << ontology
+		else #Link loaded ontology to current layer
+			ontology = @ontologies[@loaded_obos.index(ontology_file_path)]
+		end
+
+		@layer_ontologies[layer_name] = ontology
+
+	end
+
+	def load_ontology(obo_file, full=true)
+		ontology = {}
+		obsolete_terms = {}
+		id = name = nil
+		alt_ids = [] 
+		syn = []
+		is_a = []
+		new_ids = []
+		is_obsolete = false
+		allowed_tags = %w[id name is_a synonym alt_id is_obsolete replaced_by consider]
+		File.open(obo_file).each do |line|
+			line.chomp!
+			tag, info = line.split(': ')
+			if allowed_tags.include?(tag)
+				if tag == 'id'
+					if full && is_obsolete
+						new_ids.each do |new_id|
+							obsolete_terms[id] = [new_id, name]
+						end
+					else
+						add_record2ontology(ontology, id, name, is_a, syn, alt_ids, full) if !name.nil?
+					end
+					id = info
+					name = nil
+					alt_ids = []
+					syn = []
+					is_a = []
+					new_ids = []
+					is_obsolete = false
+				end
+				if tag == 'alt_id'
+					alt_ids << info
+				elsif tag == 'is_a'
+					is_a << info.split(' ! ')[0]
+				elsif tag == 'synonym'
+					syn << info.split('"')[1] #to keep only the name of the synonym
+				elsif tag == 'is_obsolete'
+					is_obsolete = true
+				elsif tag == 'replaced_by'
+					new_ids << info
+				elsif tag == 'consider' #there can be more than one "consider" tag for a given term
+					new_ids << info
+				else
+					name = info
+				end
+			end
+		end
+		add_record2ontology(ontology, id, name, is_a, syn, alt_ids, full)
+		if full
+			new_ids.each do |new_id|
+				obsolete_terms[id] = [new_id, name] if is_obsolete
+			end
+			obsolete_terms[id] = [alt_ids.first, name] if new_ids.empty? #For obsolete terms with no consider field
+			obsolete_terms.each do |obsoleteID, data|
+				new_id = data[0]
+				obsolete_name = data[1]
+				info_for_obsolete = ontology[new_id]
+				unless info_for_obsolete.nil?
+					if info_for_obsolete[3].nil?
+						info_for_obsolete[3] = [obsolete_name]
+					else
+						info_for_obsolete[3] << obsolete_name unless info_for_obsolete[3].include?(obsolete_name)
+					end
+				end
+				info_for_obsolete = ontology[new_id]
+				ontology[obsoleteID] = info_for_obsolete
+			end
+		end
+		return ontology
+	end
+
+	def add_record2ontology(ontology, id, name, is_a, syn, alt_ids, full)
+		attributes = [id, name, is_a, syn]
+		ontology[id] = attributes
+		if full
+			alt_ids.each do |altid|
+				ontology[altid] = attributes
+			end
+		end
+	end
+
+	def get_terms_levels(terms, ontology)
+		levels = {}
+		terms.each do |term|
+			level = get_term_level(term, ontology)
+			next if level.nil?
+			query = levels[level]
+			if query.nil?
+				levels[level] = [term]
+			else
+				query << term
+			end
+		end
+		return levels
+	end
+
+	def get_term_level(term, ontology)
+		level = nil
+		term_data = ontology[term] 
+		if !term_data.nil?
+			parents = term_data[2]
+			level = 1
+			while !parents.empty?
+				record = ontology[parents.first]
+				parents = record[2]
+				level += 1
+			end
+		end
+		return level
+	end
+
+	def get_parents(term, ontology_layer)
+		ontology = @layer_ontologies[ontology_layer]
+		all_parents = []
+		term_data = ontology[term] 
+		parents = term_data[2]
+		all_parents.concat(parents)
+		while !parents.empty?
+			record = ontology[parents.first]
+			parents = record[2]
+			all_parents.concat(parents)
+		end
+		return all_parents
+	end
+
 	## AUXILIAR METHODS
 	#######################################################################################
 	private
@@ -611,6 +975,7 @@ class Network
 		else
 			layer = layer_definitions.first.first
 		end
+		@layers << layer if !@layers.include?(layer)
 		return layer
 	end
 
@@ -678,11 +1043,143 @@ class Network
 		return relations
 	end
 
+	# TODO: Make a pull request to https://rubygems.org/gems/ruby-statistics, with all the statistic code implemented here.
+	#to cmpute fisher exact test
+	#Fisher => http://www.biostathandbook.com/fishers.html
+	def get_fisher_exact_test(listA, listB, all_elements_count, tail ='two_sided', weigths=nil)
+		listA_listB = listA & listB
+		listA_nolistB = listA - listB
+		nolistA_listB = listB - listA
+		if weigths.nil?
+			listA_listB_count = listA_listB.length
+			listA_nolistB_count = listA_nolistB.length
+			nolistA_listB_count = nolistA_listB.length
+			nolistA_nolistB_count = all_elements_count - (listA | listB).length
+		else
+			# Fisher exact test weigthed as proposed in Improved scoring of functional groups from gene expression data by decorrelating GO graph structure
+			# https://academic.oup.com/bioinformatics/article/22/13/1600/193669
+			listA_listB_count = listA_listB.map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
+			listA_nolistB_count = listA_nolistB.map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
+			nolistA_listB_count = nolistA_listB.map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
+			nolistA_nolistB_count = (weigths.keys - (listA | listB)).map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
+			all_elements_count = weigths.values.inject(0){|sum, n| sum + n}.ceil
+		end
+		if tail == 'two_sided'
+			accumulated_prob = get_two_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
+		elsif tail == 'less' 
+			accumulated_prob = get_less_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
+		end
+		return accumulated_prob
+	end
+
+	def get_two_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
+		#https://www.sheffield.ac.uk/polopoly_fs/1.43998!/file/tutorial-9-fishers.pdf
+		accumulated_prob = 0
+		ref_prob = compute_hyper_prob(
+			listA_listB_count, 
+			listA_nolistB_count, 
+			nolistA_listB_count, 
+			nolistA_nolistB_count, 
+			all_elements_count
+		)
+		accumulated_prob += ref_prob
+		[listA_listB_count, nolistA_nolistB_count].min.times do |n| #less
+			n += 1
+			prob = compute_hyper_prob(
+				listA_listB_count - n, 
+				listA_nolistB_count + n, 
+				nolistA_listB_count + n, 
+				nolistA_nolistB_count - n, 
+				all_elements_count
+			)
+			prob <= ref_prob ? accumulated_prob += prob : break
+		end
+
+		[listA_nolistB_count, nolistA_listB_count].min.times do |n| #greater
+			n += 1
+			prob = compute_hyper_prob(
+				listA_listB_count + n, 
+				listA_nolistB_count - n, 
+				nolistA_listB_count - n, 
+				nolistA_nolistB_count + n, 
+				all_elements_count
+			)
+			accumulated_prob += prob if prob <= ref_prob
+		end
+
+		return accumulated_prob
+	end
+
+	def get_less_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
+		accumulated_prob = 0
+		[listA_listB_count, nolistA_nolistB_count].min.times do |n|
+			accumulated_prob += compute_hyper_prob(
+				listA_listB_count - n, 
+				listA_nolistB_count + n, 
+				nolistA_listB_count + n, 
+				nolistA_nolistB_count - n, 
+				all_elements_count
+			)
+		end
+		return accumulated_prob
+	end
+
+	def compute_hyper_prob(a, b, c, d, n)
+		# https://en.wikipedia.org/wiki/Fisher%27s_exact_test
+		binomA = binom(a + b, a)
+		binomC = binom(c + d, c)
+		divisor = binom(n, a + c)
+		return (binomA * binomC).fdiv(divisor)
+	end
+
 	def binom(n,k)
 		if k > 0 && k < n
-  			res = (1+n-k..n).inject(:*)/(1..k).inject(:*)
-  		else
-  			res = 1
-  		end
+			res = (1+n-k..n).inject(:*)/(1..k).inject(:*)
+		else
+			res = 1
+		end
+	end
+
+	#to cmpute adjusted pvalues
+	#https://rosettacode.org/wiki/P-value_correction#Ruby
+	def get_benjaminiHochberg_pvalues(arr_pvalues)
+		n = arr_pvalues.length
+		arr_o = order(arr_pvalues, true)
+		arr_cummin_input = []
+		(0..(n - 1)).each do |i|
+			arr_cummin_input[i] = (n / (n - i).to_f) * arr_pvalues[arr_o[i]]
+		end
+		arr_ro = order(arr_o)
+		arr_cummin = cummin(arr_cummin_input)
+		arr_pmin = pmin(arr_cummin)
+		return arr_pmin.values_at(*arr_ro)
+	end
+
+	def order(array, decreasing = false)
+		if decreasing == false
+			array.sort.map { |n| array.index(n) }
+		else
+			array.sort.map { |n| array.index(n) }.reverse
+		end
+	end
+
+	def cummin(array)
+		cumulative_min = array.first
+		arr_cummin = []
+		array.each do |p|
+			cumulative_min = [p, cumulative_min].min
+			arr_cummin << cumulative_min
+		end
+		return arr_cummin
+	end
+
+	def pmin(array)
+		x = 1
+		pmin_array = []
+		array.each_index do |i|
+			pmin_array[i] = [array[i], x].min
+			abort if pmin_array[i] > 1
+		end
+		return pmin_array
 	end
 end

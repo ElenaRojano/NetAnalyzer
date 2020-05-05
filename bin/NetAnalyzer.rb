@@ -82,6 +82,11 @@ OptionParser.new do |opts|
     options[:output_style] = output_style
   end
 
+  options[:ontologies] = []
+  opts.on("-O", "--ontology STRING", "String that define which ontologies must be used with each layer. String definition:'layer_name1:path_to_obo_file1;layer_name2:path_to_obo_file2'") do |ontologies|
+    options[:ontologies] = ontologies.split(';').map{|pair| pair.split(':')}
+  end
+
   options[:meth] = nil
   opts.on("-m", "--association_method STRING", "Association method to use on network") do |meth|
     options[:meth] = meth.to_sym
@@ -102,17 +107,59 @@ OptionParser.new do |opts|
     options[:normalize_kernel] = true
   end
 
+  options[:graph_file] = nil
+  opts.on("-g", "--graph_file PATH", "Build a graphic representation of the network") do |item|
+    options[:graph_file] = item
+  end
+
+  options[:graph_options] = {method: 'el_grapho', layout: 'forcedir', steps: '30'}
+  opts.on("--graph_options STRING", "Set graph parameters as 'NAME1=value1,NAME2=value2,...") do |item|
+    options[:graph_options] = {}
+    item.split(',').each do |pair|
+      fields = pair.split('=')
+      options[:graph_options][fields.first.to_sym] = fields.last 
+    end
+  end
+
   options[:byte_format] = :float64
   opts.on( '-b', '--byte_format STRING', 'Format of the numeric values stored in matrix. Default: float64, warning set this to less precission can modify computation results using this matrix.' ) do |opt|
       options[:byte_format] = opt.to_sym
   end
-end.parse!
 
+  options[:reference_nodes] = []
+  opts.on("-r", "--reference_nodes STRING", "Node ids comma separared") do |item|
+    options[:reference_nodes] = item.split(',')
+  end
+
+  options[:group_nodes] = {}
+  opts.on("-G", "--group_nodes STRING", "File path or groups separated by ';' and group node ids comma separared") do |item|
+    if File.exists?(item)
+      File.open(item).each do |line|
+        groupID, nodeID = line.chomp.split("\t")
+        query = options[:group_nodes][groupID]
+        query.nil? ? options[:group_nodes][groupID] = [nodeID] : query << nodeID
+      end
+    else
+      item.split(';').each_with_index do |group, i| 
+        options[:group_nodes][i] = group.split(',')
+      end
+    end
+  end
+
+  options[:group_metrics] = false
+  opts.on("-M", "--group_metrics", "Perform group group_metrics") do 
+    options[:group_metrics] = true
+  end
+
+
+end.parse!
 ##########################
 #MAIN
 ##########################
 
 fullNet = Network.new(options[:layers].map{|layer| layer.first})
+fullNet.reference_nodes = options[:reference_nodes]
+fullNet.group_nodes = options[:group_nodes]
 fullNet.set_compute_pairs(options[:use_pairs], !options[:no_autorelations])
 fullNet.set_matrix_byte_format(options[:byte_format])
 #puts options[:layers].map{|layer| layer.first}.inspect
@@ -127,7 +174,9 @@ else
   raise("ERROR: The format #{options[:input_format]} is not defined")
 end
 
-#fullNet.plot(options[:output_file], options[:output_style])
+options[:ontologies].each do |layer_name, ontology_file_path|
+  fullNet.link_ontology(ontology_file_path, layer_name.to_sym)
+end
 
 if !options[:meth].nil?
 	puts "Performing association method #{options[:meth]} on network"
@@ -173,4 +222,13 @@ if !options[:kernel].nil?
   layer2kernel = options[:use_layers].first # we use only a layer to perform the kernel, so only one item it is selected.
   fullNet.get_kernel(layer2kernel, options[:kernel], options[:normalize_kernel])
   fullNet.write_kernel(layer2kernel, options[:kernel_file])
+end
+
+if !options[:graph_file].nil?
+  options[:graph_options][:output_file] = options[:graph_file]
+  fullNet.plot_network(options[:graph_options]) 
+end
+
+if options[:group_metrics]
+  fullNet.compute_group_metrics(File.join(File.dirname(options[:output_file]), 'group_metrics.txt'))
 end

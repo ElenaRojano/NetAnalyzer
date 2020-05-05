@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<% 
+			js_file = File.open(File.join(TEMPLATES, 'ElGrapho.min.js')).read
+			js_base64 = Base64.encode64(js_file)
+		%>
+		<script src="data:application/javascript;base64,<%= js_base64 %>" type="application/javascript"></script>
+		<% 
+			js_file = File.open(File.join(TEMPLATES, 'pako.min.js')).read
+			js_base64 = Base64.encode64(js_file)
+		%>
+		<script src="data:application/javascript;base64,<%= js_base64 %>" type="application/javascript"></script>
+		
+		<style type="text/css">
+			#container {
+				margin: 10px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="container"/>
+		</div>
+		<% 
+			nodesIndex = {}
+			model = {nodes: [], edges: []} 
+			if options[:layout] == 'forcedir'
+				if options[:steps].nil?
+					model[:steps] = 30
+				else
+					model[:steps] = options[:steps]
+				end
+			end
+			groups_index = Hash.new(1)
+			@group_nodes.values.each_with_index do |gr, i|
+				gr.each do |gr_node|
+					groups_index[gr_node] = i + 2
+				end
+			end
+			@edges.keys.each_with_index do |nodeID,i|
+				nodesIndex[nodeID] = i
+				if @reference_nodes.include?(nodeID)
+					group = 0
+				else
+					group = groups_index[nodeID]
+				end
+				model[:nodes] << {group: group}
+			end
+			@edges.each do |source, targets|
+				targets.each do |target|
+					model[:edges] << {from: nodesIndex[source], to: nodesIndex[target]}
+				end
+			end
+			network = Base64.strict_encode64(Zlib::Deflate.deflate(model.to_json))
+		%>
+
+		<script>
+			let model = JSON.parse(pako.inflate(atob("<%= network %>"), { to: 'string' }));
+		
+			graph = new ElGrapho({
+			  container: document.getElementById('container'),
+			  <% if options[:layout] == 'hairball' %>
+			     model: ElGrapho.layouts.Hairball(model),
+			  <% elsif options[:layout] == 'forcedir' %>
+			     model: ElGrapho.layouts.ForceDirected(model),
+			  <% elsif options[:layout] == 'cl' %>
+			  	 model: ElGrapho.layouts.Cluster(model),
+			  <% end %>
+			  darkMode: true,
+			  debug: false,
+			  nodeOutline: false,
+			  glowBlend: 0.5,
+			  width: 1500,
+			  height: 1000,
+			  nodeSize: 0.25,
+			  edgeSize: 0.3
+			});
+		</script>
+	</body>
+</html>
