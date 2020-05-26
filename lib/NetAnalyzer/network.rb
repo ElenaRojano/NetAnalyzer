@@ -512,20 +512,22 @@ class Network
 				levels.reverse_each do |level|
 					terms_levels[level].each do |term|
 						term_base_nodes = @edges[term].map{|id| @nodes[id]}.select{|node| node.type == base_layer}
-						if mode == :elim && pval <= thresold
-							nodes_to_remove = nil #penalized_nodes[term]
+						if mode == :elim 
+							nodes_to_remove = penalized_nodes[term]
 							nodes_to_remove = [] if nodes_to_remove.nil?
 							pval = get_fisher_exact_test(
 								base_nodes - nodes_to_remove, 
 								term_base_nodes - nodes_to_remove, 
 								((term_base_nodes | base_nodes) - nodes_to_remove).length)
-							parents = get_parents(term, ontology_layer) # Save the nodes for each parent term to remove them later in the fisher test
-							parents.each do |prnt|
-								query = penalized_nodes[prnt]
-								if query.nil?
-									penalized_nodes[prnt] = base_ontology_edges[term].clone # We need a new array to store the following iterations
-								else
-									query.concat(base_ontology_edges[term])
+							if pval <= thresold
+								parents = get_parents(term, ontology_layer) # Save the nodes for each parent term to remove them later in the fisher test
+								parents.each do |prnt|
+									query = penalized_nodes[prnt]
+									if query.nil?
+										penalized_nodes[prnt] = base_ontology_edges[term].clone # We need a new array to store the following iterations
+									else
+										query.concat(base_ontology_edges[term])
+									end
 								end
 							end
 						end

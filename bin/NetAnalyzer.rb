@@ -62,8 +62,8 @@ OptionParser.new do |opts|
 
   options[:layers] = [:layer, '-']
   opts.on("-l", "--layers STRING", "Layer definition on network: layer1name,regexp1;layer2name,regexp2...") do |layers|
-	layers_definition = layers.split(";").map{|layer_attr| layer_attr.split(',')}
-	layers_definition.map!{|layer_attr| [layer_attr.first.to_sym, /#{layer_attr.last}/]}
+  	layers_definition = layers.split(";").map{|layer_attr| layer_attr.split(',')}
+	  layers_definition.map!{|layer_attr| [layer_attr.first.to_sym, /#{layer_attr.last}/]}
     options[:layers] = layers_definition
   end
 

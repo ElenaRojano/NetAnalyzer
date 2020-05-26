@@ -28,4 +28,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "pycall"
   spec.add_dependency "npy"
   spec.add_dependency "bigdecimal"
+  spec.add_dependency "gv"
+  spec.add_dependency "zlib"
 end
