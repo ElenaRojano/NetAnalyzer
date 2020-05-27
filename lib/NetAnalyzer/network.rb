@@ -73,6 +73,30 @@ class Network
 		end
 	end
 
+	def get_connected_nodes(node_id, from_layer)
+		return @edges[node_id].map{|id| @nodes[id]}.select{|node| node.type == from_layer}.map{|node| node.id}
+	end
+
+	def get_nodes_from_layer(from_layer)
+		return @nodes.values.select{|node| node.type == from_layer}.map{|node| node.id}
+	end
+
+	def get_bipartite_subgraph(from_layer_node_ids, from_layer, to_layer)
+		bipartite_subgraph = {}
+		from_layer_node_ids.each do |from_layer_node_id| 
+			connected_nodes = @edges[from_layer_node_id]
+			connected_nodes.each do |connected_node| 
+				if @nodes[connected_node].type == to_layer
+					query = bipartite_subgraph[connected_node]
+					if query.nil?
+						bipartite_subgraph[connected_node] = get_connected_nodes(connected_node, from_layer)
+					end
+				end
+			end
+		end
+		return bipartite_subgraph
+	end
+
 	def load_network_by_pairs(file, layers, split_character="\t")
 		File.open(file).each do |line|
 			line.chomp!
@@ -509,65 +533,15 @@ class Network
 			base_nodes = get_connected_nodes(ref_node, base_layer)
 			ontology_base_subgraph = get_bipartite_subgraph(base_nodes, base_layer, ontology_layer) # get shared nodes between nodes from NOT ontology layer and ONTOLOGY layer. Also get the conections between shared nodes and ontology nodes.
 			next if ontology_base_subgraph.empty?
-			penalized_nodes = {}
-			terms_levels = ontology.get_terms_levels(ontology_base_subgraph.keys)
-			levels = terms_levels.keys.sort
-			levels.reverse_each do |level|
-				terms_levels[level].each do |term|
-					term_base_nodes = ontology_base_subgraph[term]
-					if mode == :elim 
-						nodes_to_remove = penalized_nodes[term]
-						nodes_to_remove = [] if nodes_to_remove.nil?
-						pval = get_fisher_exact_test(
-							base_nodes - nodes_to_remove, 
-							term_base_nodes - nodes_to_remove, 
-							((term_base_nodes | base_nodes) - nodes_to_remove).length
-							)
-						if pval <= thresold
-							parents = ontology.get_parents(term) # Save the nodes for each parent term to remove them later in the fisher test
-							parents.each do |prnt|
-								query = penalized_nodes[prnt]
-								if query.nil?
-									penalized_nodes[prnt] = ontology_base_subgraph[term].clone # We need a new array to store the following iterations
-								else
-									query.concat(ontology_base_subgraph[term])
-								end
-							end
-						end
-					end
-					relations << [ref_node, term, pval]
-				end
-			end
+			ontology.load_items(ontology_base_subgraph)
+			term_pvals = ontology.compute_relations_to_items(base_nodes, mode, thresold)
+			relations.concat(term_pvals.map{|term| [ref_node, term[0], term[1]]})
 		end
 		if mode == :elim
 			meth = :hypergeometric_elim
 		end
 		@association_values[meth] = relations
 		return relations
-	end
-
-	def get_connected_nodes(node_id, from_layer)
-		return @edges[node_id].map{|id| @nodes[id]}.select{|node| node.type == from_layer}.map{|node| node.id}
-	end
-
-	def get_nodes_from_layer(from_layer)
-		return @nodes.values.select{|node| node.type == from_layer}.map{|node| node.id}
-	end
-
-	def get_bipartite_subgraph(from_layer_node_ids, from_layer, to_layer)
-		bipartite_subgraph = {}
-		from_layer_node_ids.each do |from_layer_node_id| 
-			connected_nodes = @edges[from_layer_node_id]
-			connected_nodes.each do |connected_node| 
-				if @nodes[connected_node].type == to_layer
-					query = bipartite_subgraph[connected_node]
-					if query.nil?
-						bipartite_subgraph[connected_node] = get_connected_nodes(connected_node, from_layer)
-					end
-				end
-			end
-		end
-		return bipartite_subgraph
 	end
 
 	def compute_adjusted_pvalue(relations, log_val=true)
@@ -928,143 +902,5 @@ class Network
 		return relations
 	end
 
-	# TODO: Make a pull request to https://rubygems.org/gems/ruby-statistics, with all the statistic code implemented here.
-	#to cmpute fisher exact test
-	#Fisher => http://www.biostathandbook.com/fishers.html
-	def get_fisher_exact_test(listA, listB, all_elements_count, tail ='two_sided', weigths=nil)
-		listA_listB = listA & listB
-		listA_nolistB = listA - listB
-		nolistA_listB = listB - listA
-		if weigths.nil?
-			listA_listB_count = listA_listB.length
-			listA_nolistB_count = listA_nolistB.length
-			nolistA_listB_count = nolistA_listB.length
-			nolistA_nolistB_count = all_elements_count - (listA | listB).length
-		else
-			# Fisher exact test weigthed as proposed in Improved scoring of functional groups from gene expression data by decorrelating GO graph structure
-			# https://academic.oup.com/bioinformatics/article/22/13/1600/193669
-			listA_listB_count = listA_listB.map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
-			listA_nolistB_count = listA_nolistB.map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
-			nolistA_listB_count = nolistA_listB.map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
-			nolistA_nolistB_count = (weigths.keys - (listA | listB)).map{|i| weigths[i]}.inject(0){|sum, n| sum + n}.ceil
-			all_elements_count = weigths.values.inject(0){|sum, n| sum + n}.ceil
-		end
-		if tail == 'two_sided'
-			accumulated_prob = get_two_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
-		elsif tail == 'less' 
-			accumulated_prob = get_less_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
-		end
-		return accumulated_prob
-	end
 
-	def get_two_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
-		#https://www.sheffield.ac.uk/polopoly_fs/1.43998!/file/tutorial-9-fishers.pdf
-		accumulated_prob = 0
-		ref_prob = compute_hyper_prob(
-			listA_listB_count, 
-			listA_nolistB_count, 
-			nolistA_listB_count, 
-			nolistA_nolistB_count, 
-			all_elements_count
-		)
-		accumulated_prob += ref_prob
-		[listA_listB_count, nolistA_nolistB_count].min.times do |n| #less
-			n += 1
-			prob = compute_hyper_prob(
-				listA_listB_count - n, 
-				listA_nolistB_count + n, 
-				nolistA_listB_count + n, 
-				nolistA_nolistB_count - n, 
-				all_elements_count
-			)
-			prob <= ref_prob ? accumulated_prob += prob : break
-		end
-
-		[listA_nolistB_count, nolistA_listB_count].min.times do |n| #greater
-			n += 1
-			prob = compute_hyper_prob(
-				listA_listB_count + n, 
-				listA_nolistB_count - n, 
-				nolistA_listB_count - n, 
-				nolistA_nolistB_count + n, 
-				all_elements_count
-			)
-			accumulated_prob += prob if prob <= ref_prob
-		end
-
-		return accumulated_prob
-	end
-
-	def get_less_tail(listA_listB_count, listA_nolistB_count, nolistA_listB_count, nolistA_nolistB_count, all_elements_count)
-		accumulated_prob = 0
-		[listA_listB_count, nolistA_nolistB_count].min.times do |n|
-			accumulated_prob += compute_hyper_prob(
-				listA_listB_count - n, 
-				listA_nolistB_count + n, 
-				nolistA_listB_count + n, 
-				nolistA_nolistB_count - n, 
-				all_elements_count
-			)
-		end
-		return accumulated_prob
-	end
-
-	def compute_hyper_prob(a, b, c, d, n)
-		# https://en.wikipedia.org/wiki/Fisher%27s_exact_test
-		binomA = binom(a + b, a)
-		binomC = binom(c + d, c)
-		divisor = binom(n, a + c)
-		return (binomA * binomC).fdiv(divisor)
-	end
-
-	def binom(n,k)
-		if k > 0 && k < n
-			res = (1+n-k..n).inject(:*)/(1..k).inject(:*)
-		else
-			res = 1
-		end
-	end
-
-	#to cmpute adjusted pvalues
-	#https://rosettacode.org/wiki/P-value_correction#Ruby
-	def get_benjaminiHochberg_pvalues(arr_pvalues)
-		n = arr_pvalues.length
-		arr_o = order(arr_pvalues, true)
-		arr_cummin_input = []
-		(0..(n - 1)).each do |i|
-			arr_cummin_input[i] = (n / (n - i).to_f) * arr_pvalues[arr_o[i]]
-		end
-		arr_ro = order(arr_o)
-		arr_cummin = cummin(arr_cummin_input)
-		arr_pmin = pmin(arr_cummin)
-		return arr_pmin.values_at(*arr_ro)
-	end
-
-	def order(array, decreasing = false)
-		if decreasing == false
-			array.sort.map { |n| array.index(n) }
-		else
-			array.sort.map { |n| array.index(n) }.reverse
-		end
-	end
-
-	def cummin(array)
-		cumulative_min = array.first
-		arr_cummin = []
-		array.each do |p|
-			cumulative_min = [p, cumulative_min].min
-			arr_cummin << cumulative_min
-		end
-		return arr_cummin
-	end
-
-	def pmin(array)
-		x = 1
-		pmin_array = []
-		array.each_index do |i|
-			pmin_array[i] = [array[i], x].min
-			abort if pmin_array[i] > 1
-		end
-		return pmin_array
-	end
 end
