@@ -17,6 +17,7 @@ require 'erb'
 require 'base64'
 require 'json'
 require 'zlib'
+require 'semtools'
 
 TEMPLATES = File.join(File.dirname(__FILE__), 'templates')
 
@@ -502,37 +503,39 @@ class Network
 		relations = []
 		reference_layer = (layers - @layer_ontologies.keys).first
 		ontology_layer = (layers - [reference_layer]).first
-		ref_nodes = @nodes.values.select{|node| node.type == reference_layer}.map{|node| node.id} # get nodes from NOT ontology layer
+		ref_nodes = get_nodes_from_layer(reference_layer) # get nodes from NOT ontology layer
+		ontology = @layer_ontologies[ontology_layer]
 		ref_nodes.each do |ref_node|
-			base_nodes, base_ontology_edges = get_base_nodes_and_edges(ref_node, base_layer, ontology_layer) # get shared nodes between nodes from NOT ontology layer and ONTOLOGY layer. Also get the conections between shared nodes and ontology nodes.
-			if !base_ontology_edges.empty?
-				penalized_nodes = {}
-				terms_levels = get_terms_levels(base_ontology_edges.keys, @layer_ontologies[ontology_layer])
-				levels = terms_levels.keys.sort
-				levels.reverse_each do |level|
-					terms_levels[level].each do |term|
-						term_base_nodes = @edges[term].map{|id| @nodes[id]}.select{|node| node.type == base_layer}
-						if mode == :elim 
-							nodes_to_remove = penalized_nodes[term]
-							nodes_to_remove = [] if nodes_to_remove.nil?
-							pval = get_fisher_exact_test(
-								base_nodes - nodes_to_remove, 
-								term_base_nodes - nodes_to_remove, 
-								((term_base_nodes | base_nodes) - nodes_to_remove).length)
-							if pval <= thresold
-								parents = get_parents(term, ontology_layer) # Save the nodes for each parent term to remove them later in the fisher test
-								parents.each do |prnt|
-									query = penalized_nodes[prnt]
-									if query.nil?
-										penalized_nodes[prnt] = base_ontology_edges[term].clone # We need a new array to store the following iterations
-									else
-										query.concat(base_ontology_edges[term])
-									end
+			base_nodes = get_connected_nodes(ref_node, base_layer)
+			ontology_base_subgraph = get_bipartite_subgraph(base_nodes, base_layer, ontology_layer) # get shared nodes between nodes from NOT ontology layer and ONTOLOGY layer. Also get the conections between shared nodes and ontology nodes.
+			next if ontology_base_subgraph.empty?
+			penalized_nodes = {}
+			terms_levels = ontology.get_terms_levels(ontology_base_subgraph.keys)
+			levels = terms_levels.keys.sort
+			levels.reverse_each do |level|
+				terms_levels[level].each do |term|
+					term_base_nodes = ontology_base_subgraph[term]
+					if mode == :elim 
+						nodes_to_remove = penalized_nodes[term]
+						nodes_to_remove = [] if nodes_to_remove.nil?
+						pval = get_fisher_exact_test(
+							base_nodes - nodes_to_remove, 
+							term_base_nodes - nodes_to_remove, 
+							((term_base_nodes | base_nodes) - nodes_to_remove).length
+							)
+						if pval <= thresold
+							parents = ontology.get_parents(term) # Save the nodes for each parent term to remove them later in the fisher test
+							parents.each do |prnt|
+								query = penalized_nodes[prnt]
+								if query.nil?
+									penalized_nodes[prnt] = ontology_base_subgraph[term].clone # We need a new array to store the following iterations
+								else
+									query.concat(ontology_base_subgraph[term])
 								end
 							end
 						end
-						relations << [ref_node, term, pval]
 					end
+					relations << [ref_node, term, pval]
 				end
 			end
 		end
@@ -543,23 +546,28 @@ class Network
 		return relations
 	end
 
-	def get_base_nodes_and_edges(ref_node, base_layer, side_layer)
-		base_nodes = @edges[ref_node].map{|id| @nodes[id]}.select{|node| node.type == base_layer}.map{|node| node.id}
-		base_side_edges = {}
-		base_nodes.each do |base_node| 
-			layer_nodes = @edges[base_node]
-			layer_nodes.each do |layer_node| 
-				if @nodes[layer_node].type == side_layer
-					query = base_side_edges[layer_node]
+	def get_connected_nodes(node_id, from_layer)
+		return @edges[node_id].map{|id| @nodes[id]}.select{|node| node.type == from_layer}.map{|node| node.id}
+	end
+
+	def get_nodes_from_layer(from_layer)
+		return @nodes.values.select{|node| node.type == from_layer}.map{|node| node.id}
+	end
+
+	def get_bipartite_subgraph(from_layer_node_ids, from_layer, to_layer)
+		bipartite_subgraph = {}
+		from_layer_node_ids.each do |from_layer_node_id| 
+			connected_nodes = @edges[from_layer_node_id]
+			connected_nodes.each do |connected_node| 
+				if @nodes[connected_node].type == to_layer
+					query = bipartite_subgraph[connected_node]
 					if query.nil?
-						base_side_edges[layer_node] = [base_node]
-					else
-						query << base_node
+						bipartite_subgraph[connected_node] = get_connected_nodes(connected_node, from_layer)
 					end
 				end
 			end
 		end
-		return base_nodes, base_side_edges
+		return bipartite_subgraph
 	end
 
 	def compute_adjusted_pvalue(relations, log_val=true)
@@ -793,141 +801,16 @@ class Network
 
 	def link_ontology(ontology_file_path, layer_name)
 		if !@loaded_obos.include?(ontology_file_path) #Load new ontology
-			ontology = load_ontology(ontology_file_path, full=true)
+			ontology = Ontology.new
+			ontology.load_data(ontology_file_path, full=true)
 			@loaded_obos << ontology_file_path
 			@ontologies << ontology
 		else #Link loaded ontology to current layer
 			ontology = @ontologies[@loaded_obos.index(ontology_file_path)]
 		end
-
 		@layer_ontologies[layer_name] = ontology
-
 	end
 
-	def load_ontology(obo_file, full=true)
-		ontology = {}
-		obsolete_terms = {}
-		id = name = nil
-		alt_ids = [] 
-		syn = []
-		is_a = []
-		new_ids = []
-		is_obsolete = false
-		allowed_tags = %w[id name is_a synonym alt_id is_obsolete replaced_by consider]
-		File.open(obo_file).each do |line|
-			line.chomp!
-			tag, info = line.split(': ')
-			if allowed_tags.include?(tag)
-				if tag == 'id'
-					if full && is_obsolete
-						new_ids.each do |new_id|
-							obsolete_terms[id] = [new_id, name]
-						end
-					else
-						add_record2ontology(ontology, id, name, is_a, syn, alt_ids, full) if !name.nil?
-					end
-					id = info
-					name = nil
-					alt_ids = []
-					syn = []
-					is_a = []
-					new_ids = []
-					is_obsolete = false
-				end
-				if tag == 'alt_id'
-					alt_ids << info
-				elsif tag == 'is_a'
-					is_a << info.split(' ! ')[0]
-				elsif tag == 'synonym'
-					syn << info.split('"')[1] #to keep only the name of the synonym
-				elsif tag == 'is_obsolete'
-					is_obsolete = true
-				elsif tag == 'replaced_by'
-					new_ids << info
-				elsif tag == 'consider' #there can be more than one "consider" tag for a given term
-					new_ids << info
-				else
-					name = info
-				end
-			end
-		end
-		add_record2ontology(ontology, id, name, is_a, syn, alt_ids, full)
-		if full
-			new_ids.each do |new_id|
-				obsolete_terms[id] = [new_id, name] if is_obsolete
-			end
-			obsolete_terms[id] = [alt_ids.first, name] if new_ids.empty? #For obsolete terms with no consider field
-			obsolete_terms.each do |obsoleteID, data|
-				new_id = data[0]
-				obsolete_name = data[1]
-				info_for_obsolete = ontology[new_id]
-				unless info_for_obsolete.nil?
-					if info_for_obsolete[3].nil?
-						info_for_obsolete[3] = [obsolete_name]
-					else
-						info_for_obsolete[3] << obsolete_name unless info_for_obsolete[3].include?(obsolete_name)
-					end
-				end
-				info_for_obsolete = ontology[new_id]
-				ontology[obsoleteID] = info_for_obsolete
-			end
-		end
-		return ontology
-	end
-
-	def add_record2ontology(ontology, id, name, is_a, syn, alt_ids, full)
-		attributes = [id, name, is_a, syn]
-		ontology[id] = attributes
-		if full
-			alt_ids.each do |altid|
-				ontology[altid] = attributes
-			end
-		end
-	end
-
-	def get_terms_levels(terms, ontology)
-		levels = {}
-		terms.each do |term|
-			level = get_term_level(term, ontology)
-			next if level.nil?
-			query = levels[level]
-			if query.nil?
-				levels[level] = [term]
-			else
-				query << term
-			end
-		end
-		return levels
-	end
-
-	def get_term_level(term, ontology)
-		level = nil
-		term_data = ontology[term] 
-		if !term_data.nil?
-			parents = term_data[2]
-			level = 1
-			while !parents.empty?
-				record = ontology[parents.first]
-				parents = record[2]
-				level += 1
-			end
-		end
-		return level
-	end
-
-	def get_parents(term, ontology_layer)
-		ontology = @layer_ontologies[ontology_layer]
-		all_parents = []
-		term_data = ontology[term] 
-		parents = term_data[2]
-		all_parents.concat(parents)
-		while !parents.empty?
-			record = ontology[parents.first]
-			parents = record[2]
-			all_parents.concat(parents)
-		end
-		return all_parents
-	end
 
 	## AUXILIAR METHODS
 	#######################################################################################
