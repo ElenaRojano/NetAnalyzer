@@ -129,8 +129,13 @@ class Network
 	def plot_network(options = {})
 		if options[:method] == 'graphviz'
 			plot_dot(options)
-		elsif options[:method] == 'el_grapho'
-			renderered_template = ERB.new(File.open(File.join(TEMPLATES, 'el_grapho.erb')).read).result(binding)
+		else
+			if options[:method] == 'el_grapho'
+				template = 'el_grapho'
+			elsif options[:method] == 'cytoscape'
+				template = 'cytoscape'
+			end
+			renderered_template = ERB.new(File.open(File.join(TEMPLATES, template + '.erb')).read).result(binding)
 			File.open(options[:output_file] + '.html', 'w'){|f| f.puts renderered_template}
 		end	
 	end
