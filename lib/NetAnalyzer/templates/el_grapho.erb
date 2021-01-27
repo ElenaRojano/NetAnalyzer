@@ -33,9 +33,15 @@
 				end
 			end
 			groups_index = Hash.new(1)
-			@group_nodes.values.each_with_index do |gr, i|
-				gr.each do |gr_node|
-					groups_index[gr_node] = i + 2
+			if options[:group] = 'layer'
+				@nodes.each do |nodeID, node|
+					groups_index[nodeID] = @layers.index(node.type) + 1
+				end
+			else
+				@group_nodes.values.each_with_index do |gr, i|
+					gr.each do |gr_node|
+						groups_index[gr_node] = i + 2
+					end
 				end
 			end
 			@edges.keys.each_with_index do |nodeID,i|
@@ -57,6 +63,7 @@
 
 		<script>
 			let model = JSON.parse(pako.inflate(atob("<%= network %>"), { to: 'string' }));
+			console.log(model)
 		
 			graph = new ElGrapho({
 			  container: document.getElementById('container'),
@@ -64,6 +71,10 @@
 			     model: ElGrapho.layouts.Hairball(model),
 			  <% elsif options[:layout] == 'forcedir' %>
 			     model: ElGrapho.layouts.ForceDirected(model),
+			  <% elsif options[:layout] == 'chord' %>
+			  	 model: ElGrapho.layouts.Chord(model),
+			  <% elsif options[:layout] == 'radial' %>
+			  	 model: ElGrapho.layouts.RadialTree(model),			  	 
 			  <% elsif options[:layout] == 'cl' %>
 			  	 model: ElGrapho.layouts.Cluster(model),
 			  <% end %>

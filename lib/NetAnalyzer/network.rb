@@ -130,7 +130,7 @@ class Network
 		if options[:method] == 'graphviz'
 			plot_dot(options)
 		else
-			if options[:method] == 'el_grapho'
+			if options[:method] == 'elgrapho'
 				template = 'el_grapho'
 			elsif options[:method] == 'cytoscape'
 				template = 'cytoscape'
