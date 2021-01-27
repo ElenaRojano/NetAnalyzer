@@ -19,14 +19,15 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_development_dependency "rake"
-  spec.add_development_dependency "rspec"
-  spec.add_dependency "numo-linalg"
-  spec.add_dependency "numo-narray"
-  spec.add_dependency "pp"
-  spec.add_dependency "pycall"
-  spec.add_dependency "npy"
-  spec.add_dependency "bigdecimal"
-  spec.add_dependency "gv"
-  spec.add_dependency "semtools"
+  spec.add_development_dependency "rake", ">= 13.0.3"
+  spec.add_development_dependency "rspec", ">= 3.10.0"
+  spec.add_dependency "cmath", ">= 1.0.0"
+  spec.add_dependency "numo-linalg", ">= 0.1.5"
+  spec.add_dependency "numo-narray", ">= 0.9.1.9"
+  spec.add_dependency "pp", ">= 0.1.0"
+  spec.add_dependency "pycall", ">= 1.3.1"
+  spec.add_dependency "npy", ">= 0.2.0"
+  spec.add_dependency "bigdecimal", ">= 3.0.0"
+  spec.add_dependency "gv", ">= 0.1.0"
+  spec.add_dependency "semtools", ">= 0.1.1"
 end
