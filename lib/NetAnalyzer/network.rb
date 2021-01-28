@@ -256,14 +256,14 @@ class Network
 	end
 
 	def get_all_intersections
-		intersection_lengths = []
-		get_all_pairs do |node1, node2|
-			intersection_lengths << intersection(node1, node2).length
+		intersection_lengths = get_all_pairs do |node1, node2|
+			intersection(node1, node2).length
 		end
 		return intersection_lengths
 	end
 
 	def get_all_pairs(args = {})
+		all_pairs = []
 		default = {:layers => :all}
 		args = default.merge(args)
 		nodeIDsA, nodeIDsB = collect_nodes(args)
@@ -293,23 +293,27 @@ class Network
 			end
 		else
 			if @compute_pairs == :conn
-				processed_node_ids = {}
-						Parallel.each(nodeIDsA, in_threads: @threads) do |node1|
+				#processed_node_ids = {}
+						all_pairs = Parallel.map(nodeIDsA, in_processes: @threads) do |node1|
 						#nodeIDsA.each do |node1|
+							result = nil
 							ids_connected_to_n1 = @edges[node1]
 							nodeIDsB.each do |node2|
-								if processed_node_ids[node2].nil?
+								#if processed_node_ids[node2].nil?
 									ids_connected_to_n2 = @edges[node2]
 									if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
-										yield(node1, node2)
+										result = yield(node1, node2)
 									end
-								end
+								#end
 							end
-							processed_node_ids[node1] = true
+							#processed_node_ids[node1] = true
+							result
 						end
 			end
 
 		end
+		all_pairs.compact! if :conn
+		return all_pairs
 	end
 
 	def collect_nodes(args)
@@ -434,15 +438,14 @@ class Network
 	#---------------------------------------------------------
 	# Bass 2013, doi:10.1038/nmeth.2728
 	def get_associations(layers, base_layer) # BASE METHOD
-		relations = []
-		get_all_pairs(layers: layers) do |node1, node2|
+		associations = get_all_pairs(layers: layers) do |node1, node2|
 			associatedIDs_node1 = @edges[node1].map{|id| @nodes[id]}.select{|node| node.type == base_layer}.map{|node| node.id}
 			associatedIDs_node2 = @edges[node2].map{|id| @nodes[id]}.select{|node| node.type == base_layer}.map{|node| node.id}
 			intersectedIDs = associatedIDs_node1 & associatedIDs_node2
 			associationValue = yield(associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2)
-			relations << [node1, node2, associationValue]  
+			[node1, node2, associationValue]  
 		end
-		return relations
+		return associations
 	end
 
 	def get_jaccard_association(layers, base_layer)

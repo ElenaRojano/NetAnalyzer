@@ -128,8 +128,8 @@ OptionParser.new do |opts|
   end
 
   options[:threads] = 0
-  opts.on( '-T', '--threads INTEGER', 'Number of threads to use in computation.' ) do |opt|
-      options[:threads] = opt.to_i
+  opts.on( '-T', '--threads INTEGER', 'Number of threads to use in computation, one thread will be reserved as manager.' ) do |opt|
+      options[:threads] = opt.to_i - 1
   end
 
   options[:reference_nodes] = []
@@ -195,14 +195,10 @@ if !options[:meth].nil?
 			[options[:use_layers][1][0], options[:use_layers][1][1]],
 			:transference)
 	else
-    # Benchmark.bm() do |x|
-    #   x.report("assoc:"){
-    		fullNet.get_association_values(
-    			options[:use_layers][0],
-    			options[:use_layers][1].first, 
-    			options[:meth])
-    #   }
-    # end
+		fullNet.get_association_values(
+			options[:use_layers][0],
+			options[:use_layers][1].first, 
+			options[:meth])
 	end
 	File.open(options[:assoc_file], 'w') do |f|
 		fullNet.association_values[options[:meth]].each do |val|
