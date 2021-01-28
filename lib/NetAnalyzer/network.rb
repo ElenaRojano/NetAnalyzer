@@ -4,6 +4,7 @@ require 'gv'
 #require 'nmatrix/lapacke'
 require 'numo/narray'
 require 'numo/linalg'
+require 'parallel'
 
 #require 'pp'
 require 'bigdecimal'
@@ -23,11 +24,12 @@ TEMPLATES = File.join(File.dirname(__FILE__), 'templates')
 
 class Network
 
-	attr_accessor :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes
+	attr_accessor :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads
 
 	## BASIC METHODS
 	############################################################
 	def initialize(layers)
+		@threads = 0
 		@nodes = {}
 		@edges = {}
 		@layers = []
@@ -292,18 +294,19 @@ class Network
 		else
 			if @compute_pairs == :conn
 				processed_node_ids = {}
-				nodeIDsA.each do |node1|
-					ids_connected_to_n1 = @edges[node1]
-					nodeIDsB.each do |node2|
-						if processed_node_ids[node2].nil?
-							ids_connected_to_n2 = @edges[node2]
-							if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
-								yield(node1, node2)
+						Parallel.each(nodeIDsA, in_threads: @threads) do |node1|
+						#nodeIDsA.each do |node1|
+							ids_connected_to_n1 = @edges[node1]
+							nodeIDsB.each do |node2|
+								if processed_node_ids[node2].nil?
+									ids_connected_to_n2 = @edges[node2]
+									if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
+										yield(node1, node2)
+									end
+								end
 							end
+							processed_node_ids[node1] = true
 						end
-					end
-					processed_node_ids[node1] = true
-				end
 			end
 
 		end
@@ -780,8 +783,7 @@ class Network
 
 	def link_ontology(ontology_file_path, layer_name)
 		if !@loaded_obos.include?(ontology_file_path) #Load new ontology
-			ontology = Ontology.new
-			ontology.load_data(ontology_file_path, full=true)
+			ontology = Ontology.new(file: ontology_file_path, load_file: true)
 			@loaded_obos << ontology_file_path
 			@ontologies << ontology
 		else #Link loaded ontology to current layer
