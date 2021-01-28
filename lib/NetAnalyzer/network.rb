@@ -271,47 +271,42 @@ class Network
 			if @compute_pairs == :all
 				while !nodeIDsA.empty?
 					node1 = nodeIDsA.shift
-					nodeIDsA.each do |node2|
+					pairs = Parallel.map(nodeIDsA, in_processes: @threads) do |node2|
 						yield(node1, node2)
 					end
+					all_pairs.concat(pairs)
 				end
 			elsif @compute_pairs == :conn
-				processed_node_ids = {}
 				while !nodeIDsA.empty?
 					node1 = nodeIDsA.shift
 					ids_connected_to_n1 = @edges[node1]
-					nodeIDsA.each do |node2|
-						if processed_node_ids[node2].nil?
-							ids_connected_to_n2 = @edges[node2]
-							if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
-								yield(node1, node2)
-							end
+					pairs = Parallel.map(nodeIDsA, in_processes: @threads) do |node2|
+						result = nil
+						ids_connected_to_n2 = @edges[node2]
+						if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
+							yield(node1, node2)
 						end
+						result
 					end
-					processed_node_ids[node1] = true
+					all_pairs.concat(pairs)
 				end
 			end
 		else
 			if @compute_pairs == :conn
-				#processed_node_ids = {}
-						all_pairs = Parallel.map(nodeIDsA, in_processes: @threads) do |node1|
-						#nodeIDsA.each do |node1|
-							result = nil
-							ids_connected_to_n1 = @edges[node1]
-							nodeIDsB.each do |node2|
-								#if processed_node_ids[node2].nil?
-									ids_connected_to_n2 = @edges[node2]
-									if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
-										result = yield(node1, node2)
-									end
-								#end
-							end
-							#processed_node_ids[node1] = true
-							result
+				all_pairs = Parallel.map(nodeIDsA, in_processes: @threads) do |node1|
+					result = nil
+					ids_connected_to_n1 = @edges[node1]
+					nodeIDsB.each do |node2|
+						ids_connected_to_n2 = @edges[node2]
+						if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
+							result = yield(node1, node2)
 						end
+					end
+					result
+				end
 			end
-
 		end
+
 		all_pairs.compact! if :conn
 		return all_pairs
 	end
