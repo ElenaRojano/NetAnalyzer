@@ -292,18 +292,24 @@ class Network
 				end
 			end
 		else
+			#MAIN METHOD
 			if @compute_pairs == :conn
 				all_pairs = Parallel.map(nodeIDsA, in_processes: @threads) do |node1|
-					result = nil
 					ids_connected_to_n1 = @edges[node1]
+					node1_pairs = []
 					nodeIDsB.each do |node2|
 						ids_connected_to_n2 = @edges[node2]
 						if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
-							result = yield(node1, node2)
+							node1_pairs << yield(node1, node2)
+						else
+							node1_pairs << nil
 						end
 					end
-					result
+					node1_pairs
 				end
+				all_pairs.flatten!(1)
+			elsif @compute_pairs == :all
+				raise 'Not implemented'
 			end
 		end
 
