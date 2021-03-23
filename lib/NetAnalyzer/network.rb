@@ -545,7 +545,8 @@ class Network
 			base_nodes = get_connected_nodes(ref_node, base_layer)
 			ontology_base_subgraph = get_bipartite_subgraph(base_nodes, base_layer, ontology_layer) # get shared nodes between nodes from NOT ontology layer and ONTOLOGY layer. Also get the conections between shared nodes and ontology nodes.
 			next if ontology_base_subgraph.empty?
-			ontology.load_items(ontology_base_subgraph)
+			#ontology_base_subgraph.transform_values!{|v| v.map{|id| id.to_sym}}
+			ontology.load_item_relations_to_terms(ontology_base_subgraph)
 			term_pvals = ontology.compute_relations_to_items(base_nodes, mode, thresold)
 			relations.concat(term_pvals.map{|term| [ref_node, term[0], term[1]]})
 		end
