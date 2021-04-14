@@ -551,9 +551,9 @@ class Network
 			ontology_base_subgraph.transform_keys!{|k| k.to_sym}
 			ontology.load_item_relations_to_terms(ontology_base_subgraph, remove_old_relations = true)
 			term_pvals = ontology.compute_relations_to_items(base_nodes, base_layer_length, mode, thresold)
-			puts term_pvals.inspect
 			relations.concat(term_pvals.map{|term| [ref_node, term[0], term[1]]})
 		end
+		compute_log_transformation(relations)
 		if mode == :elim
 			meth = :hypergeometric_elim
 		elsif mode == :weight
