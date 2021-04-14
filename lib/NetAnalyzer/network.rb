@@ -406,6 +406,8 @@ class Network
 			relations = get_hypergeometric_associations(layers, base_layer, :benjamini_hochberg)
 		elsif meth == :hypergeometric_elim #tripartite networks?
 			relations = get_hypergeometric_associations_with_topology(layers, base_layer, :elim)
+		elsif meth == :hypergeometric_weight #tripartite networks?
+			relations = get_hypergeometric_associations_with_topology(layers, base_layer, :weight)			
 		elsif meth == :csi #all networks
 			relations = get_csi_associations(layers, base_layer)
 		elsif meth == :transference #tripartite networks
@@ -541,21 +543,21 @@ class Network
 		ontology_layer = (layers - [reference_layer]).first
 		ref_nodes = get_nodes_from_layer(reference_layer) # get nodes from NOT ontology layer
 		ontology = @layer_ontologies[ontology_layer]
-		all_base_nodes = []
-		all_ontology_base_subgraph = []
+		base_layer_length = @nodes.values.count{|n| n.type == base_layer}
 		ref_nodes.each do |ref_node|
 			base_nodes = get_connected_nodes(ref_node, base_layer)
 			ontology_base_subgraph = get_bipartite_subgraph(base_nodes, base_layer, ontology_layer) # get shared nodes between nodes from NOT ontology layer and ONTOLOGY layer. Also get the conections between shared nodes and ontology nodes.
-			all_base_nodes << base_nodes
-			all_ontology_base_subgraph << ontology_base_subgraph
 			next if ontology_base_subgraph.empty?
-			#ontology_base_subgraph.transform_values!{|v| v.map{|id| id.to_sym}}
-			ontology.load_item_relations_to_terms(ontology_base_subgraph)
-			term_pvals = ontology.compute_relations_to_items(base_nodes, ref_nodes.length, mode, thresold)
+			ontology_base_subgraph.transform_keys!{|k| k.to_sym}
+			ontology.load_item_relations_to_terms(ontology_base_subgraph, remove_old_relations = true)
+			term_pvals = ontology.compute_relations_to_items(base_nodes, base_layer_length, mode, thresold)
+			puts term_pvals.inspect
 			relations.concat(term_pvals.map{|term| [ref_node, term[0], term[1]]})
 		end
 		if mode == :elim
 			meth = :hypergeometric_elim
+		elsif mode == :weight
+			meth = :hypergeometric_weight
 		end
 		@association_values[meth] = relations
 		return relations
