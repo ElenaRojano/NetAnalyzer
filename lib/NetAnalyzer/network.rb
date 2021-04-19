@@ -284,7 +284,7 @@ class Network
 						result = nil
 						ids_connected_to_n2 = @edges[node2]
 						if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
-							yield(node1, node2)
+							result = yield(node1, node2)
 						end
 						result
 					end
