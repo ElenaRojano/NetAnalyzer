@@ -1,3 +1,4 @@
+require 'rubystats'
 require 'nodes'
 require 'gv'
 #require 'nmatrix'
@@ -507,21 +508,22 @@ class Network
 
 	def get_hypergeometric_associations(layers, base_layer, pvalue_adj_method= nil)
 		ny = get_nodes_layer([base_layer]).length
+		fet = Rubystats::FishersExactTest.new
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
-			minLength = [associatedIDs_node1.length, associatedIDs_node2.length].min
+			fisher = 0
 			intersection_lengths = intersectedIDs.length
-			sum = 0
 			if intersection_lengths > 0
-				nA = associatedIDs_node1.length
-				nB = associatedIDs_node2.length
-				#Using index from A layer proyected to B
-				hyper_denom = binom(ny, nB)
-				(intersection_lengths..minLength).each do |i|
-					binom_product = binom(nA, i) * binom(ny - nA, nB - i)
-					sum += binom_product.fdiv(hyper_denom)
-				end
+				n1_items = associatedIDs_node1.length
+				n2_items = associatedIDs_node2.length
+				fisher = fet.calculate(
+						intersection_lengths,
+						n1_items - intersection_lengths,
+						n2_items - intersection_lengths, 
+						ny - (n1_items + n2_items - intersection_lengths)
+				)
+				fisher = fisher[:right]
 			end
-			sum
+			fisher
 		end
 		if pvalue_adj_method == :bonferroni
 			meth = :hypergeometric_bf
