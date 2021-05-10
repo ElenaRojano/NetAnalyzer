@@ -277,7 +277,7 @@ class Network
 					end
 					all_pairs.concat(pairs)
 				end
-			elsif @compute_pairs == :conn
+			elsif @compute_pairs == :conn # TODO: Review this case to avoid return nil values
 				while !nodeIDsA.empty?
 					node1 = nodeIDsA.shift
 					ids_connected_to_n1 = @edges[node1]
@@ -289,6 +289,7 @@ class Network
 						end
 						result
 					end
+					pairs.compact!
 					all_pairs.concat(pairs)
 				end
 			end
@@ -302,8 +303,6 @@ class Network
 						ids_connected_to_n2 = @edges[node2]
 						if exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
 							node1_pairs << yield(node1, node2)
-						else
-							node1_pairs << nil
 						end
 					end
 					node1_pairs
@@ -314,7 +313,6 @@ class Network
 			end
 		end
 
-		all_pairs.compact! if :conn
 		return all_pairs
 	end
 
