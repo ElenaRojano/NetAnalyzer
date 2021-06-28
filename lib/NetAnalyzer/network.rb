@@ -186,8 +186,11 @@ class Network
 			metrics << [k]
 		end
 		header << 'comparative_degree'
-		comparative_degree = compute_comparative_degree_in_precomputed_communities(@group_nodes)
+		comparative_degree = communities_comparative_degree(@group_nodes)
 		comparative_degree.each_with_index{|val,i| metrics[i] << val}
+		header << 'avg_sht_path'
+		avg_sht_path = communities_avg_sht_path(@group_nodes)
+		avg_sht_path.each_with_index{|val,i| metrics[i] << val}
 		if !@reference_nodes.empty?
 			header.concat(%w[node_com_assoc_by_edge node_com_assoc_by_node])
 			node_com_assoc = compute_node_com_assoc_in_precomputed_communities(@group_nodes, @reference_nodes.first)
@@ -201,12 +204,20 @@ class Network
 		end
 	end
 
-	def compute_comparative_degree_in_precomputed_communities(coms) 
+	def communities_comparative_degree(coms) 
 		comparative_degrees = []
 		coms.each do |com_id, com|
 			comparative_degrees << compute_comparative_degree(com)
 		end
 		return comparative_degrees
+	end
+
+	def communities_avg_sht_path(coms) 
+		avg_sht_path = []
+		coms.each do |com_id, com|
+			avg_sht_path << compute_avg_sht_path(com)
+		end
+		return avg_sht_path
 	end
 
 	def compute_node_com_assoc_in_precomputed_communities(coms, ref_node)
@@ -228,6 +239,60 @@ class Network
 		end
 		comparative_degree = external_degree.fdiv(external_degree + internal_degree)
 		return comparative_degree
+	end
+
+	def compute_avg_sht_path(com)
+		path_lengths = []
+		group = com.dup
+		while !group.empty?
+			node_start = group.shift
+			group.each do |node_stop|
+				dist = shortest_path(node_start, node_stop)
+				path_lengths << dist if !dist.nil?
+			end
+		end
+		avg_sht_path = path_lengths.inject(0){|sum,l| sum + l}.fdiv(path_lengths.length)
+
+		return avg_sht_path
+	end
+
+	# https://pythoninwonderland.wordpress.com/2017/03/18/how-to-implement-breadth-first-search-in-python/
+	# finds shortest path between 2 nodes of a graph using BFS
+	def bfs_shortest_path(start, goal)
+	    # keep track of explored nodes
+	    explored = {}
+	    # keep track of all the paths to be checked
+	    queue = [[start, 0]] 
+	    # keeps looping until all possible paths have been checked
+	    while !queue.empty?
+	        # pop the first path from the queue
+	        node, dist = queue.pop
+	        # get the last node from the path
+	        if !explored.include?(node)
+	            neighbours = @edges[node] 
+	            explored[node] = true # mark node as explored
+	            next if neighbours.nil?
+	            # go through all neighbour nodes, construct a new path and
+	            # push it into the queue
+	            dist += 1 
+	            neighbours.each do |neighbour|
+	            	next if explored.include?(neighbour)
+	                queue.unshift([neighbour, dist])
+	                # return path if neighbour is goal
+	                return dist if neighbour == goal
+	            end
+	        end
+	    end
+	 
+	    # in case there's no path between the 2 nodes
+	    return nil
+	end
+
+	def shortest_path(node_start, node_stop)
+		#https://betterprogramming.pub/5-ways-to-find-the-shortest-path-in-a-graph-88cfefd0030f
+		#return bidirectionalSearch(node_start, node_stop)
+		dist = bfs_shortest_path(node_start, node_stop)
+		return  dist
 	end
 
 	def compute_node_com_assoc(com, ref_node)
