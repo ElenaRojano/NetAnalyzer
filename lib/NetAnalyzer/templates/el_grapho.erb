@@ -33,7 +33,7 @@
 				end
 			end
 			groups_index = Hash.new(1)
-			if options[:group] = 'layer'
+			if options[:group] == 'layer'
 				@nodes.each do |nodeID, node|
 					groups_index[nodeID] = @layers.index(node.type) + 1
 				end
@@ -58,6 +58,7 @@
 					model[:edges] << {from: nodesIndex[source], to: nodesIndex[target]}
 				end
 			end
+			#STDERR.puts model[:nodes].inspect
 			network = Base64.strict_encode64(Zlib::Deflate.deflate(model.to_json))
 		%>
 

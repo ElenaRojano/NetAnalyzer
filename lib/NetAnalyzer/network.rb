@@ -35,7 +35,7 @@ class Network
 		@edges = {}
 		@layers = []
 		@reference_nodes = []
-		@group_nodes = []
+		@group_nodes = {}
 		@adjacency_matrices = {}
 		@kernels = {}
 		@layers = layers
@@ -215,7 +215,8 @@ class Network
 	def communities_avg_sht_path(coms) 
 		avg_sht_path = []
 		coms.each do |com_id, com|
-			avg_sht_path << compute_avg_sht_path(com)
+			dist, paths = compute_avg_sht_path(com)
+			avg_sht_path << dist
 		end
 		return avg_sht_path
 	end
@@ -241,58 +242,82 @@ class Network
 		return comparative_degree
 	end
 
-	def compute_avg_sht_path(com)
+	def compute_avg_sht_path(com, paths=false)
 		path_lengths = []
+		all_paths = []
 		group = com.dup
 		while !group.empty?
 			node_start = group.shift
 			group.each do |node_stop|
-				dist = shortest_path(node_start, node_stop)
+				dist, path = shortest_path(node_start, node_stop, paths)
 				path_lengths << dist if !dist.nil?
+				all_paths << path if !path.empty?
 			end
 		end
 		avg_sht_path = path_lengths.inject(0){|sum,l| sum + l}.fdiv(path_lengths.length)
 
-		return avg_sht_path
+		return avg_sht_path, all_paths
 	end
 
 	# https://pythoninwonderland.wordpress.com/2017/03/18/how-to-implement-breadth-first-search-in-python/
 	# finds shortest path between 2 nodes of a graph using BFS
-	def bfs_shortest_path(start, goal)
-	    # keep track of explored nodes
-	    explored = {}
-	    # keep track of all the paths to be checked
-	    queue = [[start, 0]] 
-	    # keeps looping until all possible paths have been checked
-	    while !queue.empty?
-	        # pop the first path from the queue
-	        node, dist = queue.pop
-	        # get the last node from the path
-	        if !explored.include?(node)
+	def bfs_shortest_path(start, goal, paths=false)
+		dist = nil
+	    explored = {} # keep track of explored nodes
+	    previous = {}
+	    queue = [[start, 0]] # keep track of all the paths to be checked
+	    is_goal = false
+	    while !queue.empty? && !is_goal # keeps looping until all possible paths have been checked
+	        node, dist = queue.pop # pop the first path from the queue
+	        if !explored.include?(node) # get the last node from the path
 	            neighbours = @edges[node] 
 	            explored[node] = true # mark node as explored
 	            next if neighbours.nil?
-	            # go through all neighbour nodes, construct a new path and
-	            # push it into the queue
 	            dist += 1 
-	            neighbours.each do |neighbour|
+	            neighbours.each do |neighbour| # go through all neighbour nodes, construct a new path
 	            	next if explored.include?(neighbour)
-	                queue.unshift([neighbour, dist])
-	                # return path if neighbour is goal
-	                return dist if neighbour == goal
+	                queue.unshift([neighbour, dist]) # push it into the queue
+	                previous[neighbour] = node if paths
+	                if neighbour == goal # return path if neighbour is goal
+	                	is_goal = true
+	                	break
+	                end
 	            end
 	        end
 	    end
-	 
-	    # in case there's no path between the 2 nodes
-	    return nil
+		path = []
+		path = build_path(previous,start, goal) if paths
+	    return dist, path
 	end
 
-	def shortest_path(node_start, node_stop)
+	def build_path(previous, startNode, stopNode)
+		path = []
+		currentNode = stopNode
+		path << currentNode
+		while currentNode != startNode
+		    currentNode = previous[currentNode]
+			path << currentNode
+		end
+		return path
+	end
+
+	def shortest_path(node_start, node_stop, paths=false)
 		#https://betterprogramming.pub/5-ways-to-find-the-shortest-path-in-a-graph-88cfefd0030f
 		#return bidirectionalSearch(node_start, node_stop)
-		dist = bfs_shortest_path(node_start, node_stop)
-		return  dist
+		dist, all_paths = bfs_shortest_path(node_start, node_stop, paths)
+		return  dist, all_paths
+	end
+
+	def expand_clusters(expand_method)
+		clusters = {}
+		@group_nodes.each do |id, nodes|
+			if expand_method == 'sht_path'
+				dist, paths = compute_avg_sht_path(nodes, paths=true) # this uses bfs, maybe Dijkstra is the best one
+				new_nodes = paths.flatten.uniq
+				clusters[id] = nodes | new_nodes # If some node pair are not connected, recover them
+			end
+		end
+		return clusters
 	end
 
 	def compute_node_com_assoc(com, ref_node)

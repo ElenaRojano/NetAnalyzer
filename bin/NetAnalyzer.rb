@@ -157,12 +157,15 @@ OptionParser.new do |opts|
     options[:group_metrics] = true
   end
 
+  options[:expand_clusters] = nil
+  opts.on("-x", "--expand_clusters STRING", "Method to expand clusters Available methods: sht_path") do |item|
+    options[:expand_clusters] = item
+  end
 
 end.parse!
 ##########################
 #MAIN
 ##########################
-
 fullNet = Network.new(options[:layers].map{|layer| layer.first})
 fullNet.reference_nodes = options[:reference_nodes]
 fullNet.threads = options[:threads]
@@ -238,4 +241,15 @@ end
 
 if options[:group_metrics]
   fullNet.compute_group_metrics(File.join(File.dirname(options[:output_file]), 'group_metrics.txt'))
+end
+
+if !options[:expand_clusters].nil?
+  expanded_clusters = fullNet.expand_clusters(options[:expand_clusters])
+  File.open(File.join(File.dirname(options[:output_file]), 'expand_clusters.txt'), 'w' ) do |f|
+    expanded_clusters.each do |cl_id, nodes|
+      nodes.each do |node|
+        f.puts "#{cl_id}\t#{node}"
+      end
+    end
+  end
 end
