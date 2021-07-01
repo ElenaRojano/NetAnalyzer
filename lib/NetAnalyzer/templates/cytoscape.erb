@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<% 
+			js_file = File.open(File.join(TEMPLATES, 'cytoscape.min.js')).read
+			js_base64 = Base64.encode64(js_file)
+		%>
+		<script src="data:application/javascript;base64,<%= js_base64 %>" type="application/javascript"></script>
+		<% 
+			js_file = File.open(File.join(TEMPLATES, 'pako.min.js')).read
+			js_base64 = Base64.encode64(js_file)
+		%>
+		<script src="data:application/javascript;base64,<%= js_base64 %>" type="application/javascript"></script>
+		
+		<style type="text/css">
+			#container {
+				margin: 10px;
+				width: 1100px;
+				height: 1000px;
+				border: 2px solid black;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="container"/>
+		</div>
+		<% 
+			model = {nodes: [], edges: []} 
+ 			@nodes.each do |id, node|
+ 				model[:nodes] << {data: {id: id}}
+ 			end
+			@edges.each do |source, targets|
+				targets.each do |target|
+					model[:edges] << {data: {source: source, target: target}}
+				end
+			end
+			network = Base64.strict_encode64(Zlib::Deflate.deflate(model.to_json))
+		%>
+
+		<script>
+			let model = JSON.parse(pako.inflate(atob("<%= network %>"), { to: 'string' }));
+			cytoscape({
+			  container: document.getElementById('container'),
+			  elements: model,
+			  layout: {
+			    name: 'cose',
+			    animate: false,
+			  },
+
+			  // so we can see the ids
+			  style: [
+			    {
+			      selector: 'node',
+				  style: { 
+				  	'label': 'data(id)',
+				  	'background-color': '#666'
+				  }
+			    }
+			  ]
+			});		
+		
+		</script>
+	</body>
+</html>
