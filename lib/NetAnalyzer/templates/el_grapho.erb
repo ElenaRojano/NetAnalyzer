@@ -23,7 +23,6 @@
 		<div id="container"/>
 		</div>
 		<% 
-			nodesIndex = {}
 			model = {nodes: [], edges: []} 
 			if options[:layout] == 'forcedir'
 				if options[:steps].nil?
@@ -32,25 +31,23 @@
 					model[:steps] = options[:steps]
 				end
 			end
-			groups_index = Hash.new(1)
+			groups_index = Hash.new(0)
+			@reference_nodes.empty? ? add = 1 : add = 2 # If there are ref nodes, reserve group index 1 for them
 			if options[:group] == 'layer'
 				@nodes.each do |nodeID, node|
-					groups_index[nodeID] = @layers.index(node.type) + 1
+					groups_index[nodeID] = @layers.index(node.type) + add
 				end
 			else
 				@group_nodes.values.each_with_index do |gr, i|
 					gr.each do |gr_node|
-						groups_index[gr_node] = i + 2
+						groups_index[gr_node] = i + add
 					end
 				end
 			end
+			nodesIndex = {}
 			@edges.keys.each_with_index do |nodeID,i|
 				nodesIndex[nodeID] = i
-				if @reference_nodes.include?(nodeID)
-					group = 0
-				else
-					group = groups_index[nodeID]
-				end
+				@reference_nodes.include?(nodeID) ? group = 1 :	group = groups_index[nodeID]
 				model[:nodes] << {group: group}
 			end
 			@edges.each do |source, targets|
@@ -58,7 +55,6 @@
 					model[:edges] << {from: nodesIndex[source], to: nodesIndex[target]}
 				end
 			end
-			#STDERR.puts model[:nodes].inspect
 			network = Base64.strict_encode64(Zlib::Deflate.deflate(model.to_json))
 		%>
 
@@ -82,11 +78,11 @@
 			  darkMode: true,
 			  debug: false,
 			  nodeOutline: false,
-			  glowBlend: 0.5,
+			  glowBlend: 0.1,
 			  width: 1500,
 			  height: 1000,
-			  nodeSize: 0.25,
-			  edgeSize: 0.3
+			  nodeSize: 0.2,
+			  edgeSize: 0.2
 			});
 		</script>
 	</body>

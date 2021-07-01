@@ -31,5 +31,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "gv", ">= 0.1.0"
   spec.add_dependency "semtools", ">= 0.1.1"
   spec.add_dependency "parallel" 
-  spec.add_dependency "rubystats" 
+  spec.add_dependency "rubystats"
+  spec.add_dependency "red-colors"
 end

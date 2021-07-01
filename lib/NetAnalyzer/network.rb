@@ -137,6 +137,8 @@ class Network
 				template = 'el_grapho'
 			elsif options[:method] == 'cytoscape'
 				template = 'cytoscape'
+			elsif options[:method] == 'sigma'
+				template = 'sigma'
 			end
 			renderered_template = ERB.new(File.open(File.join(TEMPLATES, template + '.erb')).read).result(binding)
 			File.open(options[:output_file] + '.html', 'w'){|f| f.puts renderered_template}
