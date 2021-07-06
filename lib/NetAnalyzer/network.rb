@@ -250,12 +250,19 @@ class Network
 		group = com.dup
 		while !group.empty?
 			node_start = group.shift
-			group.each do |node_stop|
+			sht_paths = Parallel.map(group, in_processes: @threads) do |node_stop|
+			#group.each do |node_stop|
 				dist, path = shortest_path(node_start, node_stop, paths)
+				[dist, path]
+				#path_lengths << dist if !dist.nil?
+				#all_paths << path if !path.empty?
+			end
+			sht_paths.each do |dist, path|
 				path_lengths << dist if !dist.nil?
-				all_paths << path if !path.empty?
+				all_paths << path if !path.empty?				
 			end
 		end
+
 		avg_sht_path = path_lengths.inject(0){|sum,l| sum + l}.fdiv(path_lengths.length)
 
 		return avg_sht_path, all_paths
@@ -288,7 +295,7 @@ class Network
 	        end
 	    end
 		path = []
-		path = build_path(previous,start, goal) if paths
+		path = build_path(previous, start, goal) if paths
 	    return dist, path
 	end
 
