@@ -189,10 +189,10 @@ class Network
 		end
 		header << 'comparative_degree'
 		comparative_degree = communities_comparative_degree(@group_nodes)
-		comparative_degree.each_with_index{|val,i| metrics[i] << val}
+		comparative_degree.each_with_index{|val,i| metrics[i] << replace_nil_vals(val)}
 		header << 'avg_sht_path'
 		avg_sht_path = communities_avg_sht_path(@group_nodes)
-		avg_sht_path.each_with_index{|val,i| metrics[i] << val}
+		avg_sht_path.each_with_index{|val,i| metrics[i] << replace_nil_vals(val)}
 		if !@reference_nodes.empty?
 			header.concat(%w[node_com_assoc_by_edge node_com_assoc_by_node])
 			node_com_assoc = compute_node_com_assoc_in_precomputed_communities(@group_nodes, @reference_nodes.first)
@@ -204,6 +204,10 @@ class Network
 				f. puts gr.join("\t")
 			end
 		end
+	end
+
+	def replace_nil_vals(val)
+		return val.nil? ? 'NULL' : val
 	end
 
 	def communities_comparative_degree(coms) 
@@ -258,13 +262,15 @@ class Network
 				#all_paths << path if !path.empty?
 			end
 			sht_paths.each do |dist, path|
-				path_lengths << dist if !dist.nil?
-				all_paths << path if !path.empty?				
+				path_lengths << dist
+				all_paths << path				
 			end
 		end
-
-		avg_sht_path = path_lengths.inject(0){|sum,l| sum + l}.fdiv(path_lengths.length)
-
+		if path_lengths.include?(nil)
+			avg_sht_path = nil
+		else
+			avg_sht_path = path_lengths.inject(0){|sum,l| sum + l}.fdiv(path_lengths.length)
+		end
 		return avg_sht_path, all_paths
 	end
 
@@ -294,8 +300,12 @@ class Network
 	            end
 	        end
 	    end
-		path = []
-		path = build_path(previous, start, goal) if paths
+		if is_goal
+			path = build_path(previous, start, goal) if paths
+		else
+			dist = nil 
+			path = []
+		end
 	    return dist, path
 	end
 
@@ -313,6 +323,7 @@ class Network
 	def shortest_path(node_start, node_stop, paths=false)
 		#https://betterprogramming.pub/5-ways-to-find-the-shortest-path-in-a-graph-88cfefd0030f
 		#return bidirectionalSearch(node_start, node_stop)
+		#https://efficientcodeblog.wordpress.com/2017/12/13/bidirectional-search-two-end-bfs/
 		dist, all_paths = bfs_shortest_path(node_start, node_stop, paths)
 		return  dist, all_paths
 	end
