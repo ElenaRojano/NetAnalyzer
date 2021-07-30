@@ -1,5 +1,4 @@
 require 'rubystats'
-require 'nodes'
 require 'gv'
 #require 'nmatrix'
 #require 'nmatrix/lapacke'
@@ -11,7 +10,7 @@ require 'parallel'
 require 'bigdecimal'
 require 'benchmark'
 #require 'nmatrix_expansion'
-require 'numo_expansion'
+
 require 'npy'
 
 #For javascrip plotting
@@ -33,7 +32,6 @@ class Network
 		@threads = 0
 		@nodes = {}
 		@edges = {}
-		@layers = []
 		@reference_nodes = []
 		@group_nodes = {}
 		@adjacency_matrices = {}
@@ -932,7 +930,7 @@ class Network
 	    			matrix = Numo::DFloat.zeros(row.length, row.length)
 	    		end
 	    		row.each_with_index do |val, i|
-	    			matrix[counter, i] = val 
+	    			matrix[counter, i] = val if val != 0
 	    		end
 	    		counter += 1
 		end

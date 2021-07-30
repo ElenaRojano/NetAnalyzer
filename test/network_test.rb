@@ -1,7 +1,7 @@
 ROOT_PATH = File.dirname(__FILE__)
 require File.join(ROOT_PATH, 'test_helper.rb')
 
-class NetworkTest < Test::Unit::TestCase
+class NetworkTest < Minitest::Test
 
 	def setup
 		layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/]]

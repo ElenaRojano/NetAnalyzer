@@ -1,12 +1,10 @@
 #! /usr/bin/env ruby
 
 ROOT_PATH = File.dirname(__FILE__)
-$: << File.expand_path(File.join(ROOT_PATH, '..', 'lib', 'NetAnalyzer'))
-$: << File.expand_path(File.join(ROOT_PATH, '..', 'lib', 'NetAnalyzer', 'methods'))
-
-require 'network'
+$LOAD_PATH.unshift(File.expand_path(File.join(ROOT_PATH, '..', 'lib')))
 require 'optparse'
 require 'benchmark'
+require 'NetAnalyzer'
 
 ##############################
 #OPTPARSE
