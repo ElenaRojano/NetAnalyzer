@@ -160,6 +160,11 @@ OptionParser.new do |opts|
     options[:expand_clusters] = item
   end
 
+  options[:get_attributes] = []
+  opts.on("-A", "--attributes STRING", "String separadted by commas with the name of network attribute") do |item|
+    options[:get_attributes] = item.split(',')
+  end
+
 end.parse!
 ##########################
 #MAIN
@@ -184,6 +189,15 @@ end
 
 options[:ontologies].each do |layer_name, ontology_file_path|
   fullNet.link_ontology(ontology_file_path, layer_name.to_sym)
+end
+
+if !options[:get_attributes].empty?
+  node_attributes = fullNet.get_node_attributes(options[:get_attributes])
+  File.open(File.join(File.dirname(options[:output_file]), 'node_attributes.txt'), 'w' ) do |f|
+    node_attributes.each do |attributes|
+      f.puts(attributes.join("\t"))
+    end
+  end
 end
 
 if !options[:meth].nil?

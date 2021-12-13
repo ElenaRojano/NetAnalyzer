@@ -123,8 +123,39 @@ class Network
 	end
 
 	def get_edge_number
-		node_connections = @edges.values.map{|connections| connections.length}.inject(0){|sum, n| sum + n}
+		node_connections = get_degree.values.inject(0){|sum, n| sum + n}
 		return node_connections/2
+	end
+
+	def get_degree(zscore=false)
+		degree = {}
+		@edges.each do |id, nodes|
+			degree[id] = nodes.length
+		end
+		if !zscore
+			degree_values = degree.values
+			mean_degree = mean(degree_values)
+			std_degree = standard_deviation(degree_values)
+			degree.transform_values!{|v| (v - mean_degree).fdiv(std_degree)}
+		end
+		return degree
+	end
+
+	def get_node_attributes(attr_names)
+		attrs = []
+		attr_names.each do |attr_name|
+			if attr_name == 'get_degree'
+				attrs << get_degree
+			elsif attr_name == 'get_degreeZ'
+				attrs << get_degree(zscore=true)
+			end
+		end
+		node_ids = attrs.first.keys
+		node_attrs = []
+		node_ids.each do |n|
+			node_attrs << [n].concat(attrs.map{|at| at[n]})
+		end
+		return node_attrs
 	end
 
 	def plot_network(options = {})
@@ -915,6 +946,17 @@ class Network
 	## AUXILIAR METHODS
 	#######################################################################################
 	private
+
+	def mean(array)
+		return array.inject(0){|sum, n | sum + n}.fdiv(array.length)
+	end
+
+	def standard_deviation(array)
+		x_mean = mean(array)
+		variance = array.inject(0){|sum, n | sum + (n - x_mean)**2 }.fdiv(array.length)
+		return Math.sqrt(variance)
+	end
+
 
 	def load_input_list(file)
 		return File.open(file).readlines.map!{|line| line.chomp}
