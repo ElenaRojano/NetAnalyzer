@@ -4,6 +4,7 @@ require 'gv'
 #require 'nmatrix/lapacke'
 require 'numo/narray'
 require 'numo/linalg'
+require 'npy'
 require 'parallel'
 
 #require 'pp'
@@ -11,15 +12,15 @@ require 'bigdecimal'
 require 'benchmark'
 #require 'nmatrix_expansion'
 
-require 'npy'
 
 #For javascrip plotting
 require 'erb'
 require 'base64'
 require 'json'
 require 'zlib'
-require 'semtools'
 
+require 'semtools'
+require 'expcalc'
 TEMPLATES = File.join(File.dirname(__FILE__), 'templates')
 
 class Network
