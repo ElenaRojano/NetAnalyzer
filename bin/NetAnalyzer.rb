@@ -120,11 +120,6 @@ OptionParser.new do |opts|
     end
   end
 
-  options[:byte_format] = :float64
-  opts.on( '-b', '--byte_format STRING', 'Format of the numeric values stored in matrix. Default: float64, warning set this to less precission can modify computation results using this matrix.' ) do |opt|
-      options[:byte_format] = opt.to_sym
-  end
-
   options[:threads] = 0
   opts.on( '-T', '--threads INTEGER', 'Number of threads to use in computation, one thread will be reserved as manager.' ) do |opt|
       options[:threads] = opt.to_i - 1
@@ -174,7 +169,6 @@ fullNet.reference_nodes = options[:reference_nodes]
 fullNet.threads = options[:threads]
 fullNet.group_nodes = options[:group_nodes]
 fullNet.set_compute_pairs(options[:use_pairs], !options[:no_autorelations])
-fullNet.set_matrix_byte_format(options[:byte_format])
 #puts options[:layers].map{|layer| layer.first}.inspect
 puts "Loading network data"
 if options[:input_format] == 'pair'

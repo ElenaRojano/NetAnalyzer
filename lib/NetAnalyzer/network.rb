@@ -4,7 +4,6 @@ require 'gv'
 #require 'nmatrix/lapacke'
 require 'numo/narray'
 require 'numo/linalg'
-require 'npy'
 require 'parallel'
 
 #require 'pp'
@@ -42,7 +41,6 @@ class Network
 		@control_connections = {}
 		@compute_pairs = :conn
 		@compute_autorelations = true
-		@matrix_byte_format = :float64
 		@loaded_obos = []
 		@ontologies = []
 		@layer_ontologies = {}
@@ -51,10 +49,6 @@ class Network
 	def set_compute_pairs(use_pairs, get_autorelations)
 		@compute_pairs = use_pairs
 		@compute_autorelations = get_autorelations
-	end
-
-	def set_matrix_byte_format(matrix_format)
-		@matrix_byte_format = matrix_format
 	end
 
 	def add_node(nodeID, nodeType = 0)
@@ -112,15 +106,13 @@ class Network
 	end
 
 	def load_network_by_bin_matrix(input_file, node_file, layers)
-		# Take into acount https://github.com/ankane/npy to load and read mats
 		node_names = load_input_list(node_file)
-		#@adjacency_matrices[layers.map{|l| l.first}] = [Marshal.load(File.binread(input_file)), node_names, node_names]
-		@adjacency_matrices[layers.map{|l| l.first}] = [Npy.load(input_file), node_names, node_names]
+		@adjacency_matrices[layers.map{|l| l.first}] = [Numo::NArray.load(input_file, type='npy'), node_names, node_names]
 	end
 
 	def load_network_by_plain_matrix(input_file, node_file, layers, splitChar)
 		node_names = load_input_list(node_file)
-		@adjacency_matrices[layers.map{|l| l.first}] = [load_matrix_file(input_file, splitChar), node_names, node_names]
+		@adjacency_matrices[layers.map{|l| l.first}] = [Numo::NArray.load(input_file, type='txt', splitChar=splitChar), node_names, node_names]
 	end
 
 	def get_edge_number
@@ -135,8 +127,8 @@ class Network
 		end
 		if !zscore
 			degree_values = degree.values
-			mean_degree = mean(degree_values)
-			std_degree = standard_deviation(degree_values)
+			mean_degree = degree_values.mean
+			std_degree = degree_values.standard_deviation
 			degree.transform_values!{|v| (v - mean_degree).fdiv(std_degree)}
 		end
 		return degree
@@ -501,7 +493,6 @@ class Network
 	def generate_adjacency_matrix(layerA, layerB)
 		layerAidNodes = @nodes.select{|id, node| node.type == layerA}.keys
 		layerBidNodes = @nodes.select{|id, node| node.type == layerB}.keys
-		#matrix = NMatrix.new([layerAidNodes.length, layerBidNodes.length], 0, dtype: @matrix_byte_format)
 		matrix = Numo::DFloat.zeros(layerAidNodes.length, layerBidNodes.length)
 		layerAidNodes.each_with_index do |nodeA, i|
 			layerBidNodes.each_with_index do |nodeB, j|
@@ -861,7 +852,6 @@ class Network
 	## KERNEL METHODS
 	#######################################################################################
 	def get_kernel(layer2kernel, kernel, normalization=false)
-		#matrix = NMatrix.new([3, 3],[1, 1, 0, 0, 0, 2, 0, 5, -1], dtype: @matrix_byte_format)
 		matrix, node_names = @adjacency_matrices[layer2kernel]
 		#I = identity matrix
 		#D = Diagonal matrix
@@ -928,8 +918,7 @@ class Network
 	end
 
 	def write_kernel(layer2kernel, output_file)
-		Npy.save(output_file, @kernels[layer2kernel])
-		#File.binwrite(output_file, Marshal.dump(@kernels[layer2kernel]))
+		@kernels[layer2kernel].save(output_file)
 	end
 
 	def link_ontology(ontology_file_path, layer_name)
@@ -948,36 +937,8 @@ class Network
 	#######################################################################################
 	private
 
-	def mean(array)
-		return array.inject(0){|sum, n | sum + n}.fdiv(array.length)
-	end
-
-	def standard_deviation(array)
-		x_mean = mean(array)
-		variance = array.inject(0){|sum, n | sum + (n - x_mean)**2 }.fdiv(array.length)
-		return Math.sqrt(variance)
-	end
-
-
 	def load_input_list(file)
 		return File.open(file).readlines.map!{|line| line.chomp}
-	end
-
-	def load_matrix_file(input_file, splitChar = "\t")
-		matrix = nil
-		counter = 0
-		File.open(input_file).each do |line|
-		    	line.chomp!
-	    		row = line.split(splitChar).map{|c| c.to_f }
-	    		if matrix.nil?
-	    			matrix = Numo::DFloat.zeros(row.length, row.length)
-	    		end
-	    		row.each_with_index do |val, i|
-	    			matrix[counter, i] = val if val != 0
-	    		end
-	    		counter += 1
-		end
-		return matrix
 	end
 
  	def exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
@@ -1070,6 +1031,4 @@ class Network
 		end
 		return relations
 	end
-
-
 end
