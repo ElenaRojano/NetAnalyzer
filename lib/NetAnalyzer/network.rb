@@ -168,7 +168,7 @@ class Network
 	end
 
 	def plot_dot(user_options = {}) # input keys: layout
-		options = {layout => "sfdp"}
+		options = {layout: "sfdp"}
 		options = options.merge(user_options)
 		graphviz_colors = %w[lightsteelblue1 lightyellow1 lightgray orchid2]
 		palette = {}
