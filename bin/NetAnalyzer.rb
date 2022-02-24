@@ -172,7 +172,7 @@ fullNet.set_compute_pairs(options[:use_pairs], !options[:no_autorelations])
 #puts options[:layers].map{|layer| layer.first}.inspect
 puts "Loading network data"
 if options[:input_format] == 'pair'
-  fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:splitChar])
+  fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:split_char])
 elsif options[:input_format] == 'bin'
   fullNet.load_network_by_bin_matrix(options[:input_file], options[:node_file], options[:layers])
 elsif options[:input_format] == 'matrix'

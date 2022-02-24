@@ -103,6 +103,7 @@ class Network
 			add_node(node2, set_layer(layers, node2))
 			add_edge(node1, node2)	
 		end
+		Process.exit
 	end
 
 	def load_network_by_bin_matrix(input_file, node_file, layers)
