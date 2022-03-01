@@ -6,6 +6,17 @@ require 'optparse'
 require 'benchmark'
 require 'NetAnalyzer'
 
+######################################
+## METHODS
+######################################
+def load_file(path)
+  data = []
+  File.open(path).each do |line|
+    data << line.chomp.split("\t")
+  end
+  return data
+end
+
 ##############################
 #OPTPARSE
 ##############################
@@ -160,7 +171,12 @@ OptionParser.new do |opts|
     options[:get_attributes] = item.split(',')
   end
 
+  options[:delete_nodes] = []
+  opts.on("-d", "--delete PATH", "Remove nodes from file. If PATH;r then nodes not included in file are removed") do |item|
+    options[:delete_nodes] = item.split(';')
+  end
 end.parse!
+
 ##########################
 #MAIN
 ##########################
@@ -179,6 +195,12 @@ elsif options[:input_format] == 'matrix'
   fullNet.load_network_by_plain_matrix(options[:input_file], options[:node_file], options[:layers], options[:splitChar])
 else
   raise("ERROR: The format #{options[:input_format]} is not defined")
+end
+
+if !options[:delete_nodes].empty?
+  node_list = load_file(options[:delete_nodes].first).flatten
+  options[:delete_nodes].length > 1 ? mode = options[:delete_nodes][1] : 'd'
+  fullNet.delete_nodes(node_list, mode)
 end
 
 options[:ontologies].each do |layer_name, ontology_file_path|
