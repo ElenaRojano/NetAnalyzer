@@ -6,6 +6,7 @@ require 'optparse'
 require 'numo/narray'
 require 'numo/linalg'
 require 'npy'
+require 'expcalc'
 
 #require 'pp'
 #############################################################################
@@ -37,17 +38,7 @@ def load_pair_file(source, byte_format = :float32)
 		add_pair(node_a, node_b, weight, connections)
 		add_pair(node_b, node_a, weight, connections)
 	end
-	names = connections.keys
-	matrix = Numo::DFloat.zeros(names.length, names.length)
-	count = 0
-	connections.each do |nodeA, subhash|
-		index_A = names.index(nodeA)
-		subhash.each do |nodeB, weight|
-			index_B = names.index(nodeB)
-			matrix[index_A, index_B] = weight
-		end
-		count += 1
-	end	
+	matrix, names = connections.to_wmatrix
 	return matrix, names
 end
 
@@ -235,7 +226,7 @@ optparse = OptionParser.new do |opts|
     end
 
     options[:output_type] = 'bin'
-    opts.on( '-O', '--output_type PATH', 'Set output format file. "bin" for binary (default) or "mat" for tabulated text file matrix' ) do |opt|
+    opts.on( '-O', '--output_type STRING', 'Set output format file. "bin" for binary (default) or "mat" for tabulated text file matrix' ) do |opt|
         options[:output_type] = opt
     end
 
