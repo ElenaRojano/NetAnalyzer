@@ -69,6 +69,23 @@ class Network
 		end
 	end
 
+	def delete_nodes(node_list, mode='d')
+		if mode == 'd'
+			@nodes.reject!{|n| node_list.include?(n)}
+			@edges.reject!{|n, connections| node_list.include?(n)}
+			@edges.each do |n, connections|
+				connections.reject!{|c| node_list.include?(c)}
+			end
+		elsif mode == 'r'
+			@nodes.select!{|n| node_list.include?(n)}
+			@edges.select!{|n, connections| node_list.include?(n)}
+			@edges.each do |n, connections|
+				connections.select!{|c| node_list.include?(c)}
+			end
+		end
+		@edges.reject!{|n, connections| connections.empty?}
+	end
+
 	def get_connected_nodes(node_id, from_layer)
 		return @edges[node_id].map{|id| @nodes[id]}.select{|node| node.type == from_layer}.map{|node| node.id}
 	end
