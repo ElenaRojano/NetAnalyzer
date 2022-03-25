@@ -176,7 +176,6 @@ OptionParser.new do |opts|
     options[:delete_nodes] = item.split(';')
   end
 end.parse!
-
 ##########################
 #MAIN
 ##########################
