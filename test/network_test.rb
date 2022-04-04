@@ -20,7 +20,7 @@ class NetworkTest < Minitest::Test
 
 	def test_get_counts_association
 		test_association = @network_obj.get_counts_association([:main], :projection) 
-		test_association.map!{|a| [a[0], a[1], a[2].round(6)]}
+		test_association.map!{|a| [a[0], a[1], a[2]]}
 		all_association_values = []
 		File.open(File.join(ROOT_PATH, 'counts_results.txt')).each("\n") do |line|
 			line.chomp!
