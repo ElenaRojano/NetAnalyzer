@@ -610,7 +610,9 @@ class Network
 	############################################################
 	def get_association_values(layers, base_layer, meth)
 		relations = [] #node A, node B, val
-		if meth == :jaccard #all networks
+		if meth == :counts
+			relations = get_counts_association(layers, base_layer)
+		elsif meth == :jaccard #all networks
 			relations = get_jaccard_association(layers, base_layer)
 		elsif meth == :simpson #all networks
 			relations = get_simpson_association(layers, base_layer)
@@ -671,6 +673,14 @@ class Network
 			[node1, node2, associationValue]  
 		end
 		return associations
+	end
+
+	def get_counts_association(layers, base_layer)
+		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
+			countValue = intersectedIDs.length	
+		end
+		@association_values[:counts] = relations
+		return relations
 	end
 
 	def get_jaccard_association(layers, base_layer)

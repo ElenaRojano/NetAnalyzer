@@ -18,6 +18,19 @@ class NetworkTest < Minitest::Test
 		assert_equal(64, test_connections)	
 	end
 
+	def test_get_counts_association
+		test_association = @network_obj.get_counts_association([:main], :projection) 
+		test_association.map!{|a| [a[0], a[1], a[2].round(6)]}
+		all_association_values = []
+		File.open(File.join(ROOT_PATH, 'counts_results.txt')).each("\n") do |line|
+			line.chomp!
+			fields = line.split("\t")
+			association_value = fields.pop.to_f
+			all_association_values << [fields[0], fields[1], association_value.round(6)]
+		end
+		assert_equal(all_association_values.sort, test_association.sort)
+	end
+
 	def test_get_jaccard_association
 		test_association = @network_obj.get_jaccard_association([:main], :projection) 
 		test_association.map!{|a| [a[0], a[1], a[2].round(6)]}
