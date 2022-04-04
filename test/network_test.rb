@@ -26,7 +26,7 @@ class NetworkTest < Minitest::Test
 			line.chomp!
 			fields = line.split("\t")
 			association_value = fields.pop.to_f
-			all_association_values << [fields[0], fields[1], association_value.round(6)]
+			all_association_values << [fields[0], fields[1], association_value]
 		end
 		assert_equal(all_association_values.sort, test_association.sort)
 	end
