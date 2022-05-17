@@ -97,9 +97,8 @@ def leave_one_out_validation(kernel_matrix, kernels_nodes, seed_genes)
   one_out_seeds.each do |one_out_seed|
     gene_to_predict = seed_genes - one_out_seed
     gene_to_predict = gene_to_predict[0]
-
     ranked_one_out = get_individual_rank(kernel_matrix, kernels_nodes, one_out_seed, gene_to_predict)
-    out_genes_score.append(ranked_one_out)
+    out_genes_score.append(ranked_one_out) if !ranked_one_out.nil?
   end
 
   return out_genes_score
@@ -108,12 +107,16 @@ end
 
 def get_individual_rank(kernel_matrix, kernels_nodes, seed_genes, node_of_interest)
   genes_pos = get_nodes_indexes(kernels_nodes, seed_genes)
+  node_of_interest_pos = kernels_nodes.find_index(node_of_interest)
+
+  return nil if genes_pos.empty? || node_of_interest_pos.nil?
+
   subsets_gen_values = kernel_matrix[genes_pos,true]
   integrated_gen_values = subsets_gen_values.sum(0)
 
-  node_of_interest_pos = kernels_nodes.find_index(node_of_interest)
+
   ref_value = integrated_gen_values[node_of_interest_pos]
-    
+
   members_below_test = 0
   integrated_gen_values.each do |gen_value|
     members_below_test += 1 if gen_value > ref_value
