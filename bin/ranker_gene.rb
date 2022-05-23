@@ -2,6 +2,7 @@
 require 'optparse'
 require 'npy'
 require 'numo/narray'
+require "numo/linalg"
 require 'parallel'
 
 ########################### FUNCTIONS #######################
@@ -54,9 +55,9 @@ def lst2arr(lst_file)
 end
 
 
-def rank_by_seedgen(kernel_matrix, kernels_nodes, seed_genes)
+def rank_by_seedgen(kernel_matrix, seed_indexes, seed_genes, kernels_nodes)
   ordered_gene_score = []
-  genes_pos = get_nodes_indexes(kernels_nodes, seed_genes)
+  genes_pos = seed_genes.map{|s| seed_indexes[s]}.compact
   number_of_seed_genes = genes_pos.length
   number_of_all_nodes = kernels_nodes.length
   
@@ -75,7 +76,7 @@ def rank_by_seedgen(kernel_matrix, kernels_nodes, seed_genes)
       node_name = kernels_nodes[order_index]
       rank = get_position_for_items_with_same_score(pos, val, last_val, gen_list, ordered_indexes, ordered_gene_score)
       rank_percentage = rank.fdiv(number_of_all_nodes)
-      ordered_gene_score << [kernels_nodes[order_index], val, rank_percentage, rank]
+      ordered_gene_score << [node_name, val, rank_percentage, rank]
       last_val = val
     end
   end
@@ -144,6 +145,17 @@ def get_nodes_indexes(all_nodes, nodes_of_interest)
   return nodes_of_interest_pos
 end
 
+def get_seed_indexes(all_nodes, all_nodes_of_interest)
+  indexes = {}
+  all_nodes_of_interest.each do |node|
+    if !indexes.include?(node)
+      indx = all_nodes.index(node)
+      indexes[node] = indx if !indx.nil?
+    end
+  end
+  return indexes
+end
+
 ########################### OPTPARSE ########################
 #############################################################
 
@@ -210,10 +222,11 @@ if options[:leave_one_out]
     ranked_genes[seed_name] = leave_one_out_validation(matrix, kernel_nodes, seed) # Benchmarking mode
   end
 else
+  seed_indexes = get_seed_indexes(kernel_nodes, genes_seed.values.flatten)
   seed_groups = genes_seed.to_a # Array conversion needed for parallelization
   ranked_lists = Parallel.map(seed_groups, in_processes: options[:threads]) do |seed_name, seed|
     # The code in this block CANNOT modify nothing outside
-    rank_list = rank_by_seedgen(matrix, kernel_nodes, seed) # Production mode
+    rank_list = rank_by_seedgen(matrix, seed_indexes, seed, kernel_nodes) # Production mode
     [seed_name, rank_list]
   end
   ranked_lists.each do |seed_name, rank_list| # Transfer resuls to hash
