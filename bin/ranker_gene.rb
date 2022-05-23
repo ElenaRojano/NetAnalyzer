@@ -2,6 +2,7 @@
 require 'optparse'
 require 'npy'
 require 'numo/narray'
+require 'parallel'
 
 ########################### FUNCTIONS #######################
 #############################################################
@@ -54,38 +55,43 @@ end
 
 
 def rank_by_seedgen(kernel_matrix, kernels_nodes, seed_genes)
+  ordered_gene_score = []
   genes_pos = get_nodes_indexes(kernels_nodes, seed_genes)
   number_of_seed_genes = genes_pos.length
   number_of_all_nodes = kernels_nodes.length
   
-  return nil if number_of_seed_genes == 0
-  
-  subsets_gen_values = kernel_matrix[genes_pos,true]
-  integrated_gen_values = subsets_gen_values.sum(0)
-  gen_list = 1.fdiv(number_of_seed_genes) * integrated_gen_values
+  if number_of_seed_genes > 0
+    subsets_gen_values = kernel_matrix[genes_pos,true]
+    integrated_gen_values = subsets_gen_values.sum(0)
+    gen_list = 1.fdiv(number_of_seed_genes) * integrated_gen_values.inplace
 
-  ordered_indexes = gen_list.sort_index.to_a.reverse
-  
-  ordered_gene_score = []
-  ordered_indexes.each_with_index do |order_index, pos| 
-    val = gen_list[order_index]
-    node_name = kernels_nodes[order_index]
-    if pos == 0
-      members_below = 0
-    elsif pos > 0
-      prev_val = gen_list[ordered_indexes[pos-1]]
+    ordered_indexes = gen_list.sort_index
+    
+    last_val = nil
+    n_elements = ordered_indexes.shape.first
+    n_elements.times do |pos|
+      order_index = ordered_indexes[n_elements - (pos + 1)]    
+      val = gen_list[order_index]
+      node_name = kernels_nodes[order_index]
+      rank = get_position_for_items_with_same_score(pos, val, last_val, gen_list, ordered_indexes, ordered_gene_score)
+      rank_percentage = rank.fdiv(number_of_all_nodes)
+      ordered_gene_score << [kernels_nodes[order_index], val, rank_percentage, rank]
+      last_val = val
+    end
+  end
+  return ordered_gene_score
+end
+
+def get_position_for_items_with_same_score(pos, val, prev_val, gen_list, ordered_indexes, ordered_gene_score)
+    members_below = 0
+    if !prev_val.nil?
       if prev_val > val
         members_below = pos
       else 
         members_below = ordered_gene_score.last[3]
       end
     end
-    rank = members_below
-    rank_percentage = members_below.fdiv(number_of_all_nodes)
-    ordered_gene_score.append([kernels_nodes[order_index], val, rank_percentage, rank])
-  end
-
-  return ordered_gene_score
+    return members_below
 end
 
 
@@ -184,6 +190,10 @@ OptionParser.new do  |opts|
     options[:output_name] = output_name
   end
 
+  options[:threads] = 0
+  opts.on( '-T', '--threads INTEGER', 'Number of threads to use in computation, one thread will be reserved as manager.' ) do |opt|
+      options[:threads] = opt.to_i - 1
+  end
 end.parse!
 
 ########################### MAIN ############################
@@ -200,8 +210,14 @@ if options[:leave_one_out]
     ranked_genes[seed_name] = leave_one_out_validation(matrix, kernel_nodes, seed) # Benchmarking mode
   end
 else
-  genes_seed.each do |seed_name, seed|  
-    ranked_genes[seed_name] = rank_by_seedgen(matrix, kernel_nodes, seed) # Production mode
+  seed_groups = genes_seed.to_a # Array conversion needed for parallelization
+  ranked_lists = Parallel.map(seed_groups, in_processes: options[:threads]) do |seed_name, seed|
+    # The code in this block CANNOT modify nothing outside
+    rank_list = rank_by_seedgen(matrix, kernel_nodes, seed) # Production mode
+    [seed_name, rank_list]
+  end
+  ranked_lists.each do |seed_name, rank_list| # Transfer resuls to hash
+    ranked_genes[seed_name] = rank_list
   end
 end
 
@@ -217,10 +233,9 @@ else
   filtered_ranked_genes = {}
   ranked_genes.each do |seed_name, ranking|
     filtered_ranked_genes[seed_name] = []
-    next if ranking.nil?
-    ranking.each do |line|
-      next if !genes_to_keep[seed_name].include?(line[0])
-      filtered_ranked_genes[seed_name] << line
+    ranking.each do |rank|
+      next if !genes_to_keep[seed_name].include?(rank[0])
+      filtered_ranked_genes[seed_name] << rank
     end
   end
 end
