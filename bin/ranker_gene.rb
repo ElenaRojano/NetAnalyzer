@@ -71,10 +71,11 @@ def rank_by_seedgen(kernel_matrix, seed_indexes, seed_genes, kernels_nodes)
     last_val = nil
     n_elements = ordered_indexes.shape.first
     n_elements.times do |pos|
-      order_index = ordered_indexes[n_elements - (pos + 1)]    
+      order_index = ordered_indexes[pos]    
       val = gen_list[order_index]
       node_name = kernels_nodes[order_index]
-      rank = get_position_for_items_with_same_score(pos, val, last_val, gen_list, ordered_indexes, ordered_gene_score)
+      rank = get_position_for_items_with_same_score(pos, val, last_val, gen_list, n_elements, ordered_gene_score)
+      rank = n_elements - rank
       rank_percentage = rank.fdiv(number_of_all_nodes)
       ordered_gene_score << [node_name, val, rank_percentage, rank]
       last_val = val
@@ -83,16 +84,16 @@ def rank_by_seedgen(kernel_matrix, seed_indexes, seed_genes, kernels_nodes)
   return ordered_gene_score
 end
 
-def get_position_for_items_with_same_score(pos, val, prev_val, gen_list, ordered_indexes, ordered_gene_score)
-    members_below = 0
+def get_position_for_items_with_same_score(pos, val, prev_val, gen_list, n_elements, ordered_gene_score)
+    members_behind = 0
     if !prev_val.nil?
-      if prev_val > val
-        members_below = pos
+      if prev_val < val
+        members_behind = pos
       else 
-        members_below = ordered_gene_score.last[3]
+        members_behind = n_elements - ordered_gene_score.last[3]
       end
     end
-    return members_below
+    return members_behind
 end
 
 
@@ -126,7 +127,7 @@ def get_individual_rank(kernel_matrix, kernels_nodes, seed_genes, node_of_intere
 
   members_below_test = 0
   integrated_gen_values.each do |gen_value|
-    members_below_test += 1 if gen_value > ref_value
+    members_below_test += 1 if gen_value >= ref_value
   end
 
   rank_percentage = members_below_test.fdiv(kernels_nodes.length)
