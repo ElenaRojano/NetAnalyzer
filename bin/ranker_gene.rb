@@ -81,7 +81,7 @@ def rank_by_seedgen(kernel_matrix, seed_indexes, seed_genes, kernels_nodes)
       last_val = val
     end
   end
-  return ordered_gene_score
+  return ordered_gene_score.reverse
 end
 
 def get_position_for_items_with_same_score(pos, val, prev_val, gen_list, n_elements, ordered_gene_score)
