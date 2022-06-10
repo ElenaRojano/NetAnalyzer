@@ -14,9 +14,9 @@ class RankerTest < Minitest::Test
 	def ranked_genes2array(ranked_genes)
 		test_ranked_genes = []
   		ranked_genes.each do |seed_name, rank_list|
-  		  rank_list.each do |ranked_gene| 
-            test_ranked_genes << ranked_gene.map{|el| el.to_s} + [seed_name]
-          end
+  			rank_list.each do |ranked_gene| 
+            	test_ranked_genes << ranked_gene.map{|el| el.to_s} + [seed_name]
+          	end
   		end
   		return test_ranked_genes
 	end
@@ -52,7 +52,7 @@ class RankerTest < Minitest::Test
 	def test_leave_one_out
 		ranked_genes = {}
 		@genes_seed.each do |seed_name, seed|  
-          ranked_genes[seed_name] = leave_one_out_validation(@matrix, @kernel_nodes, seed)
+        	ranked_genes[seed_name] = leave_one_out_validation(@matrix, @kernel_nodes, seed)
         end
   		test_ranked_genes = ranked_genes2array(ranked_genes)
   		validate_ranked_genes = load_results('leave_one_out_by_seedgene_results')
@@ -71,36 +71,36 @@ class RankerTest < Minitest::Test
 	end
 
 	def test_get_filtered
-	  genes_to_keep = load_genes_by_group(File.join(FILE_PATH, 'genes2filter_for_validating'),",")
-      ranked_genes = {}
-      File.open(File.join(FILE_PATH, 'ranked_genes')).each("\n") do |line|
-	  	line.chomp!
-	  	fields = line.split("\t")
-	  	seed_name = fields.shift
-	  	values = fields[0].split(";").map{|row| row.split(",")}
-	  	ranked_genes[seed_name] = values
-	  end
+		genes_to_keep = load_genes_by_group(File.join(FILE_PATH, 'genes2filter_for_validating'),",")
+    	ranked_genes = {}
+    	File.open(File.join(FILE_PATH, 'ranked_genes')).each("\n") do |line|
+			line.chomp!
+			fields = line.split("\t")
+			seed_name = fields.shift
+			values = fields[0].split(";").map{|row| row.split(",")}
+			ranked_genes[seed_name] = values
+		end
 
-	  filtered_ranked_genes = get_filtered(genes_to_keep, ranked_genes)
-	  test_filtered_ranked_genes = ranked_genes2array(filtered_ranked_genes)
-      validate_filtered_ranked_genes = load_results('filter_results')
-  	  assert_equal(validate_filtered_ranked_genes, test_filtered_ranked_genes)
+		filtered_ranked_genes = get_filtered(genes_to_keep, ranked_genes)
+		test_filtered_ranked_genes = ranked_genes2array(filtered_ranked_genes)
+    	validate_filtered_ranked_genes = load_results('filter_results')
+  		assert_equal(validate_filtered_ranked_genes, test_filtered_ranked_genes)
   	end
 
 	def test_get_top
-	  ranked_genes = {}
-      File.open(File.join(FILE_PATH, 'ranked_genes')).each("\n") do |line|
-	  	line.chomp!
-	  	fields = line.split("\t")
-	  	seed_name = fields.shift
-	  	values = fields[0].split(";").map{|row| row.split(",")}
-	  	ranked_genes[seed_name] = values
-	  end
+		ranked_genes = {}
+    	File.open(File.join(FILE_PATH, 'ranked_genes')).each("\n") do |line|
+			line.chomp!
+			fields = line.split("\t")
+			seed_name = fields.shift
+			values = fields[0].split(";").map{|row| row.split(",")}
+			ranked_genes[seed_name] = values
+		end
 
-	  top_ranked_genes = get_top(2, ranked_genes)
-	  test_top_ranked_genes = ranked_genes2array(top_ranked_genes)
-	  validate_top_ranked_genes = load_results('top_results')
-	  assert_equal(validate_top_ranked_genes,test_top_ranked_genes)
+		top_ranked_genes = get_top(2, ranked_genes)
+		test_top_ranked_genes = ranked_genes2array(top_ranked_genes)
+		validate_top_ranked_genes = load_results('top_results')
+		assert_equal(validate_top_ranked_genes,test_top_ranked_genes)
 	end
 
 end
