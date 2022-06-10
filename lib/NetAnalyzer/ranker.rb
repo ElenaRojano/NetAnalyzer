@@ -3,35 +3,24 @@
 require 'numo/narray'
 require "numo/linalg"
 
-def load_seed_genes(seed_genes, seed_genes_sep)
-  if File.exist?(seed_genes) 
-    seed_genes = load_genes_from_file(seed_genes, seed_genes_sep)
+def load_genes_by_group(group_genes, group_genes_sep)
+  if File.exist?(group_genes) 
+    group_genes = load_genes_from_file(group_genes, group_genes_sep)
   else
-    seed_genes = {"seed_genes" => seed_genes.split(",")}
+    group_genes = {"seed_genes" => group_genes.split(",")}
   end
-  return seed_genes
+  return group_genes
 end
         
-def load_genes_from_file(file, seed_genes_sep)
-  seed_genes = {}
+def load_genes_from_file(file, group_genes_sep)
+  group_genes = {}
   File.open(file).each do |line|
     line = line.chomp.split("\t")
     set_name = line[0]
-    genes = line[1].split(seed_genes_sep) 
-    seed_genes[set_name] = genes
+    genes = line[1].split(group_genes_sep) 
+    group_genes[set_name] = genes
   end
-  return seed_genes
-end
-
-def load_filter(file)
-  filter = {}
-  if File.exist?(file)
-    File.open(file).each do |line|
-      line = line.chomp.split("\t")
-      filter[line[0]] = line[1].split(",") 
-    end
-  end
-  return filter
+  return group_genes
 end
 
 def lst2arr(lst_file)
@@ -109,6 +98,7 @@ def get_individual_rank(kernel_matrix, kernels_nodes, seed_genes, node_of_intere
 
   subsets_gen_values = kernel_matrix[genes_pos,true]
   integrated_gen_values = subsets_gen_values.sum(0)
+  integrated_gen_values = 1.fdiv(genes_pos.length) * integrated_gen_values.inplace
 
 
   ref_value = integrated_gen_values[node_of_interest_pos]
@@ -125,9 +115,9 @@ def get_individual_rank(kernel_matrix, kernels_nodes, seed_genes, node_of_intere
 end
 
 def get_filtered(genes_to_keep, ranked_genes)
-    ranked_genes.reject!{|seed_name, ranking| genes_to_keep[seed_name].nil?}
+  ranked_genes.reject!{|seed_name, ranking| genes_to_keep[seed_name].nil?}
 
-    filtered_ranked_genes = {}
+  filtered_ranked_genes = {}
 
 	ranked_genes.each do |seed_name, ranking|
 	  filtered_ranked_genes[seed_name] = []

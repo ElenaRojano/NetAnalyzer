@@ -65,7 +65,7 @@ end.parse!
 
 matrix = Npy.load(options[:kernel_file])
 kernel_nodes = lst2arr(options[:node_file])
-genes_seed = load_seed_genes(options[:genes_seed], options[:seed_genes_sep])
+genes_seed = load_genes_by_group(options[:genes_seed], options[:seed_genes_sep])
 output_name = options[:output_name]
 ranked_genes = {}
 
@@ -96,7 +96,7 @@ if !discarded_seeds.empty?
 end
 
 if !options[:filter].nil? && !options[:leave_one_out]
-  genes_to_keep = load_filter(options[:filter])
+  genes_to_keep = load_genes_by_group(options[:filter],",")
   filtered_ranked_genes = get_filtered(genes_to_keep, ranked_genes)
 else
   filtered_ranked_genes = ranked_genes
