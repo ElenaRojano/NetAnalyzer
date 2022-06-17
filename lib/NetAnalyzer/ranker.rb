@@ -45,22 +45,28 @@ def rank_by_seedgen(kernel_matrix, seed_indexes, seed_genes, kernels_nodes)
     integrated_gen_values = subsets_gen_values.sum(0)
     gen_list = 1.fdiv(number_of_seed_genes) * integrated_gen_values.inplace
 
-    ordered_indexes = gen_list.sort_index
+    ordered_indexes = gen_list.sort_index # from smallest to largest
     
     last_val = nil
-    n_elements = ordered_indexes.shape.first
+    n_elements = ordered_indexes.shape.first 
     n_elements.times do |pos|
       order_index = ordered_indexes[pos]    
       val = gen_list[order_index]
       node_name = kernels_nodes[order_index]
-      rank = get_position_for_items_with_same_score(pos, val, last_val, gen_list, n_elements, ordered_gene_score)
-      rank = n_elements - rank
+
+      rank = get_position_for_items_with_same_score(pos, val, last_val, gen_list, n_elements, ordered_gene_score) # number of items behind
+      rank = n_elements - rank # number of nodes below or equal
       rank_percentage = rank.fdiv(number_of_all_nodes)
+
       ordered_gene_score << [node_name, val, rank_percentage, rank]
       last_val = val
     end
+
+    ordered_gene_score = ordered_gene_score.reverse # from largest to smallest
+    ordered_gene_score = add_absolute_rank_column(ordered_gene_score)
   end
-  return ordered_gene_score.reverse
+  
+  return ordered_gene_score
 end
 
 def get_position_for_items_with_same_score(pos, val, prev_val, gen_list, n_elements, ordered_gene_score)
@@ -73,6 +79,27 @@ def get_position_for_items_with_same_score(pos, val, prev_val, gen_list, n_eleme
       end
     end
     return members_behind
+end
+
+def add_absolute_rank_column(ranking)
+  ranking_with_new_column = []
+  absolute_rank = 1
+  n_rows = ranking.length
+  n_rows.times do |row_pos|
+    if row_pos == 0
+      new_row = ranking[row_pos] << absolute_rank
+      ranking_with_new_column << new_row
+    else
+      prev_val = ranking[row_pos-1][2]
+      val = ranking[row_pos][2]
+      if val > prev_val
+        absolute_rank +=1
+      end
+      new_row = ranking[row_pos] << absolute_rank
+      ranking_with_new_column << new_row
+    end
+  end
+  return ranking_with_new_column
 end
 
 def leave_one_out_validation(kernel_matrix, kernels_nodes, seed_genes)
@@ -93,26 +120,44 @@ end
 def get_individual_rank(kernel_matrix, kernels_nodes, seed_genes, node_of_interest)
   genes_pos = get_nodes_indexes(kernels_nodes, seed_genes)
   node_of_interest_pos = kernels_nodes.find_index(node_of_interest)
+  ordered_gene_score = nil
 
-  return nil if genes_pos.empty? || node_of_interest_pos.nil?
+  if !genes_pos.empty? && !node_of_interest_pos.nil?
 
-  subsets_gen_values = kernel_matrix[genes_pos,true]
-  integrated_gen_values = subsets_gen_values.sum(0)
-  integrated_gen_values = 1.fdiv(genes_pos.length) * integrated_gen_values.inplace
+    subsets_gen_values = kernel_matrix[genes_pos,true]
+    integrated_gen_values = subsets_gen_values.sum(0)
+    integrated_gen_values = 1.fdiv(genes_pos.length) * integrated_gen_values.inplace
 
+    ref_value = integrated_gen_values[node_of_interest_pos]
 
-  ref_value = integrated_gen_values[node_of_interest_pos]
+    members_below_test = 0
+    integrated_gen_values.each do |gen_value|
+      members_below_test += 1 if gen_value >= ref_value
+    end
 
-  members_below_test = 0
-  integrated_gen_values.each do |gen_value|
-    members_below_test += 1 if gen_value >= ref_value
+    rank_percentage = members_below_test.fdiv(kernels_nodes.length)
+    rank = members_below_test
+    rank_absolute = get_individual_absolute_rank(integrated_gen_values.to_a,ref_value)
+
+    ordered_gene_score = [node_of_interest, ref_value, rank_percentage, rank, rank_absolute]
   end
 
-  rank_percentage = members_below_test.fdiv(kernels_nodes.length)
-  rank = members_below_test
+  return ordered_gene_score
 
-  return [node_of_interest, ref_value, rank_percentage, rank]
 end
+
+def get_individual_absolute_rank(values_list,ref_value)
+  ref_pos = nil
+  values_list = values_list.sort.reverse.uniq
+  values_list.each_with_index do |value,pos|
+    if value == ref_value
+      ref_pos = pos+1
+      break
+    end
+  end
+  return ref_pos
+end
+
 
 def get_filtered(genes_to_keep, ranked_genes)
   ranked_genes.reject!{|seed_name, ranking| genes_to_keep[seed_name].nil?}
