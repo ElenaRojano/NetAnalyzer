@@ -8,6 +8,21 @@ require 'npy'
 require 'parallel'
 require 'NetAnalyzer'
 
+
+########################### METHODS ########################
+#############################################################
+
+def write_ranking(file, ranking_list)
+  File.open(file ,'w') do |f|
+    ranking_list.each do |seed_name, ranking|
+      ranking.each do |ranked_gene| 
+        f.puts "#{ranked_gene.join("\t")}\t#{seed_name}"
+      end
+    end
+  end
+end
+
+
 ########################### OPTPARSE ########################
 #############################################################
 
@@ -47,6 +62,11 @@ OptionParser.new do  |opts|
   options[:top_n] = nil   
   opts.on("-t","--top_n INT", "Top N genes to print in output") do |str|
     options[:top_n] = str.to_i
+  end
+
+  options[:output_top] = nil   
+  opts.on("-T","--output_top PATH", "File to save Top N genes") do |path|
+    options[:output_top] = path
   end
 
   options[:output_name] = "ranked_genes"
@@ -103,17 +123,16 @@ else
 end
 
 if !options[:top_n].nil?
-  filtered_ranked_genes = get_top(options[:top_n], filtered_ranked_genes)
+  top_n = get_top(options[:top_n], filtered_ranked_genes)
+  if options[:output_top].nil?
+    filtered_ranked_genes = top_n
+  else
+    write_ranking(options[:output_top], top_n)
+  end
 end
 
 if !filtered_ranked_genes.empty?
-  File.open("#{output_name}_all_candidates" ,'w') do |f|
-    filtered_ranked_genes.each do |seed_name, ranking|
-      ranking.each do |ranked_gene| 
-        f.puts "#{ranked_gene.join("\t")}\t#{seed_name}"
-      end
-    end
-  end
+  write_ranking("#{output_name}_all_candidates", filtered_ranked_genes)
 end
 
 
