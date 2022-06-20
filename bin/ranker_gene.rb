@@ -65,7 +65,7 @@ OptionParser.new do  |opts|
   end
 
   options[:output_top] = nil   
-  opts.on("-T","--output_top PATH", "File to save Top N genes") do |path|
+  opts.on("--output_top PATH", "File to save Top N genes") do |path|
     options[:output_top] = path
   end
 
