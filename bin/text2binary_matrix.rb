@@ -220,6 +220,11 @@ optparse = OptionParser.new do |opts|
         options[:binarize] = opt.to_f
     end
 
+    options[:cutoff] = nil
+    opts.on( '-c', '--cutoff FLOAT', 'Cutoff matrix values keeping just x >= and setting any other to zero into matrix given' ) do |opt|
+        options[:cutoff] = opt.to_f
+    end
+
     options[:stats] = false
     opts.on( '-s', '--get_stats', 'Get stats from the processed matrix' ) do
         options[:stats] = true
@@ -266,11 +271,20 @@ if options[:set_diagonal]
 	end
 end
 
-if !options[:binarize].nil?
+if !options[:binarize].nil? && options[:cutoff].nil?
 	elements = matrix.shape.last
 	elements.times do |i|
 		elements.times do |j|
 			matrix[i,j] = matrix[i,j] >= options[:binarize] ? 1 : 0
+		end
+	end
+end
+
+if !options[:cutoff].nil? && options[:binarize].nil?
+	elements = matrix.shape.last
+	elements.times do |i|
+		elements.times do |j|
+			matrix[i,j] = matrix[i,j] >= options[:cutoff] ? matrix[i,j] : 0
 		end
 	end
 end
