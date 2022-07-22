@@ -83,56 +83,38 @@ end.parse!
 ########################### MAIN ############################
 #############################################################
 
-matrix = Npy.load(options[:kernel_file])
-kernel_nodes = lst2arr(options[:node_file])
-genes_seed = load_genes_by_group(options[:genes_seed], options[:seed_genes_sep])
-output_name = options[:output_name]
-ranked_genes = {}
+ranker = Ranker.new()
+ranker.matrix = Npy.load(options[:kernel_file])
+ranker.load_nodes_from_file(options[:node_file])
+ranker.load_seeds(options[:genes_seed], sep: options[:seed_genes_sep])
+ranker.do_ranking(leave_one_out: options[:leave_one_out], threads: options[:threads])
+rankings = ranker.ranking
 
-if options[:leave_one_out]
-  genes_seed.each do |seed_name, seed|  
-    ranked_genes[seed_name] = leave_one_out_validation(matrix, kernel_nodes, seed) # Benchmarking mode
-  end
-else
-  seed_indexes = get_seed_indexes(kernel_nodes, genes_seed.values.flatten)
-  seed_groups = genes_seed.to_a # Array conversion needed for parallelization
-  ranked_lists = Parallel.map(seed_groups, in_processes: options[:threads]) do |seed_name, seed|
-    # The code in this block CANNOT modify nothing outside
-    rank_list = rank_by_seedgen(matrix, seed_indexes, seed, kernel_nodes) # Production mode
-    [seed_name, rank_list]
-  end
-  ranked_lists.each do |seed_name, rank_list| # Transfer resuls to hash
-    ranked_genes[seed_name] = rank_list
-  end
-end
-
-discarded_seeds = ranked_genes.select{|seed_name, ranks| ranks.empty?}.keys
+discarded_seeds = rankings.select{|seed_name, ranks| ranks.empty?}.keys
 if !discarded_seeds.empty?
-  File.open("#{output_name}_discarded",'w') do |f|
+  File.open("#{options[:output_name]}_discarded",'w') do |f|
     discarded_seeds.each do |seed_name|
-      f.puts "#{seed_name}\t#{genes_seed[seed_name].join(options[:seed_genes_sep])}"
+      f.puts "#{seed_name}\t#{ranker.seeds[seed_name].join(options[:seed_genes_sep])}"
     end
   end
 end
 
-if !options[:filter].nil? && !options[:leave_one_out]
-  genes_to_keep = load_genes_by_group(options[:filter],",")
-  filtered_ranked_genes = get_filtered(genes_to_keep, ranked_genes)
-else
-  filtered_ranked_genes = ranked_genes
-end
-
 if !options[:top_n].nil?
-  top_n = get_top(options[:top_n], filtered_ranked_genes)
+  top_n = ranker.get_top(options[:top_n])
   if options[:output_top].nil?
-    filtered_ranked_genes = top_n
+    rankings = top_n
   else
     write_ranking(options[:output_top], top_n)
   end
 end
 
-if !filtered_ranked_genes.empty?
-  write_ranking("#{output_name}_all_candidates", filtered_ranked_genes)
+if !options[:filter].nil? && !options[:leave_one_out]
+  ranker.load_references(options[:filter], sep: ",")
+  rankings = ranker.get_reference_ranks
+end
+
+if !rankings.empty?
+  write_ranking("#{options[:output_name]}_all_candidates", rankings)
 end
 
 
