@@ -83,4 +83,10 @@ class RankerTest < Minitest::Test
 		assert_equal(load_results('top_results'),test_top_ranked_genes)
 	end
 
+	def test_filtered_top_compatibility
+		filtered_ranked_genes = ranked_genes2array(@ranker_with_ranking.get_reference_ranks)
+		test_top_ranked_genes = ranked_genes2array(@ranker_with_ranking.get_top(2))
+		assert_equal(load_results('top_results'),test_top_ranked_genes)
+	end
+
 end

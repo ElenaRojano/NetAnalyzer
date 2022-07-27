@@ -190,12 +190,11 @@ class Ranker
 
 
   def get_reference_ranks
-    @ranking.reject!{|seed_name, ranking| @reference_nodes[seed_name].nil?}
-
     filtered_ranked_genes = {}
-
+    
   	@ranking.each do |seed_name, ranking|
   	  filtered_ranked_genes[seed_name] = []
+      next if @reference_nodes[seed_name].nil?
   	  ranking.each do |rank|
   	    next if !@reference_nodes[seed_name].include?(rank[0])
   	    filtered_ranked_genes[seed_name] << rank
