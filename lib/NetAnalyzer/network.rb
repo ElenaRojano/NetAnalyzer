@@ -4,6 +4,7 @@ require 'gv'
 #require 'nmatrix/lapacke'
 require 'numo/narray'
 require 'numo/linalg'
+require 'npy'
 require 'parallel'
 
 #require 'pp'
@@ -195,7 +196,8 @@ class Network
 		nodes = []
 		count = 0
 		group_nodes = {}
-		@group_nodes.each do |groupID, gNodes|
+		@group_nodes.each do |groupID, gNodes
+			|
 			gNodes.each do |gNode|
 				group_nodes[gNode] = groupID
 			end
@@ -596,7 +598,12 @@ class Network
 			end
 		end
 		all_info_matrix = [matrix, layerAidNodes, layerBidNodes]
-		@adjacency_matrices[[layerA, layerB]] = all_info_matrix
+
+		if layerA == layerB
+			@adjacency_matrices[[layerA]] = all_info_matrix
+		else
+			@adjacency_matrices[[layerA, layerB]] = all_info_matrix
+		end
 		return all_info_matrix
 	end
 
@@ -1034,6 +1041,88 @@ class Network
 		@layer_ontologies[layer_name] = ontology
 	end
 
+	## RAMDOMIZATION METHODS
+	############################################################
+	def randomize_monopartite_net_by_nodes(layer)
+		nodeIds = @adjacency_matrices[[layer]][1]
+		nodeIds.shuffle!
+		@adjacency_matrices[[layer]][1] = nodeIds
+		@adjacency_matrices[[layer]][2] = nodeIds
+	end	
+
+	def randomize_bipartite_net_by_nodes(layerA, layerB)
+		rowIds = @adjacency_matrices[[layerA, layerB]][1]
+		rowIds.shuffle!
+		@adjacency_matrices[[layerA, layerB]][1] = rowIds
+	end
+
+	def randomize_monopartite_net_by_links(layers)
+		nodesA = []
+		nodesB = []
+		relations = diagonal2relations(@adjacency_matrices[layers].first, @adjacency_matrices[layers][1], @adjacency_matrices[layers][2])
+		relations.each do |relation|
+			nodesA << relation[0]
+			nodesB << relation[1]
+		end
+		nodesB.shuffle!
+		@edges = {}
+		nodesA.each do |nodeA|
+			index_nodeB = 0
+			while nodeA == nodesB[index_nodeB] 
+				index_nodeB += 1
+			end
+			nodeB = nodesB.delete_at(index_nodeB)
+			# if nodeB.nil? randomize_monopartite_net_by_links(layers)
+			add_edge(nodeA, nodeB)
+		end
+		generate_adjacency_matrix(layers[0], layers[0])
+	end
+
+
+	def randomize_bipartite_net_by_links(layers)
+		nodesA = []
+		nodesB = []
+		relations = matrix2relations(@adjacency_matrices[layers].first, @adjacency_matrices[layers][1], @adjacency_matrices[layers][2])
+		relations.each do |relation|
+			nodesA << relation[0]
+			nodesB << relation[1]
+		end
+		nodesB.shuffle!
+		@edges = {}
+
+		nodesA.each_with_index do |nodeA, i|
+			add_edge(nodeA, nodesB[i])
+		end
+		generate_adjacency_matrix(layers[0], layers[1])
+
+	end
+
+	def save_adjacency_matrix(layerA, layerB, output_file)
+		if layerA == layerB
+			layers = [layerA]
+		else 
+			layers = [layerA, layerB]
+		end
+		Npy.save(output_file, @adjacency_matrices[layer].first)
+		node_names = @nodes.values.map{|node| node.id}
+		File.open(output_file+'.lst', 'w'){|f| f.print node_names.join("\n")}
+	end
+
+	def build_nodes_from_adjacency_matrix(layers_network, layers_adjacency_matrix)
+		nodes_ids = @adjacency_matrices[layers_adjacency_matrix][1].concat(@adjacency_matrices[layers_adjacency_matrix][2]).uniq
+		nodes_ids.each do |node_id|
+			add_node(node_id, set_layer(layers_network, node_id))
+		end
+	end
+
+	def build_edges_from_adjacency_matrix(layer)
+		@edges = {}
+		relations = matrix2relations(@adjacency_matrices[layer].first, @adjacency_matrices[layer][1], @adjacency_matrices[layer][2])
+		relations.each do |relation|
+			add_edge(relation[0], relation[1])
+		end
+	end
+
 
 	## AUXILIAR METHODS
 	#######################################################################################
@@ -1133,4 +1222,19 @@ class Network
 		end
 		return relations
 	end
+
+	def diagonal2relations(finalMatrix, rowIds, colIds)
+		relations = []
+		rowIds.each_with_index do |rowId, rowPos|
+			colIds.each_with_index do |colId, colPos| 
+				colMatrix = rowPos + colPos + 1
+				if colMatrix < colIds.length
+					associationValue = finalMatrix[rowPos, colMatrix]
+					relations << [rowId, colIds[colMatrix], associationValue] if associationValue > 0
+				end
+			end
+		end
+		return relations
+	end
+
 end
