@@ -135,16 +135,16 @@ class Network
 	end
 
 	def get_edge_number
-		node_connections = get_degree.values.inject(0){|sum, n| sum + n}
+		node_connections = get_degree(zscore = false).values.inject(0){|sum, n| sum + n}
 		return node_connections/2
 	end
 
-	def get_degree(zscore=false)
+	def get_degree(zscore=true)
 		degree = {}
 		@edges.each do |id, nodes|
 			degree[id] = nodes.length
 		end
-		if !zscore
+		if zscore
 			degree_values = degree.values
 			mean_degree = degree_values.mean
 			std_degree = degree_values.standard_deviation
@@ -1044,13 +1044,14 @@ class Network
 	## RAMDOMIZATION METHODS
 	############################################################
 	def randomize_monopartite_net_by_nodes(layer)
-		nodeIds = @adjacency_matrices[[layer]][1]
+		nodeIds = @adjacency_matrices[layer][1]
 		nodeIds.shuffle!
-		@adjacency_matrices[[layer]][1] = nodeIds
-		@adjacency_matrices[[layer]][2] = nodeIds
+		@adjacency_matrices[layer][1] = nodeIds
+		@adjacency_matrices[layer][2] = nodeIds
 	end	
 
-	def randomize_bipartite_net_by_nodes(layerA, layerB)
+	def randomize_bipartite_net_by_nodes(layers)
+		layerA, layerB = layers
 		rowIds = @adjacency_matrices[[layerA, layerB]][1]
 		rowIds.shuffle!
 		@adjacency_matrices[[layerA, layerB]][1] = rowIds
@@ -1079,7 +1080,7 @@ class Network
 	end
 
 
-	def randomize_bipartite_net_by_links(layers)
+	def randomize_bipartite_net_by_links(layers) 
 		nodesA = []
 		nodesB = []
 		relations = matrix2relations(@adjacency_matrices[layers].first, @adjacency_matrices[layers][1], @adjacency_matrices[layers][2])

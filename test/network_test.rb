@@ -4,18 +4,24 @@ require File.join(ROOT_PATH, 'test_helper.rb')
 class NetworkTest < Minitest::Test
 
 	def setup
-		layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/]]
-		@network_obj = Network.new(layers.map{|layer| layer.first})
-		@network_obj.load_network_by_pairs(File.join(ROOT_PATH, 'bipartite_network_for_validating.txt'), layers)
+		@bipartite_layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/]]
+		@network_obj = Network.new(@bipartite_layers.map{|layer| layer.first})
+		@network_obj.load_network_by_pairs(File.join(ROOT_PATH, 'bipartite_network_for_validating.txt'), @bipartite_layers)
+		@network_obj.generate_adjacency_matrix(@bipartite_layers[0].first, @bipartite_layers[1].first)
+
+		@monopartite_layers = [[:main, /\w/], [:main, /\w/]]
+		@monopartite_network = Network.new(@monopartite_layers.map{|layer| layer.first})
+		@monopartite_network.load_network_by_pairs(File.join(ROOT_PATH, 'monopartite_network_for_validating.txt'), @monopartite_layers)
+		@monopartite_network.generate_adjacency_matrix(@monopartite_layers[0].first, @monopartite_layers[0].first)
 	end
 
 	def test_load_network_by_pairs
 		test_main_layer = @network_obj.get_nodes_layer([:main]).length
-		assert_equal(9, test_main_layer)
+		assert_equal(6, test_main_layer)
 		test_projection_layer = @network_obj.get_nodes_layer([:projection]).length
-		assert_equal(16, test_projection_layer)
+		assert_equal(10, test_projection_layer)
 		test_connections = @network_obj.get_edge_number
-		assert_equal(64, test_connections)	
+		assert_equal(40, test_connections)	
 	end
 
 	def test_get_counts_association
@@ -122,5 +128,49 @@ class NetworkTest < Minitest::Test
 			all_association_values << [fields[0], fields[1], association_value.round(6)]
 		end
 		assert_equal(all_association_values.sort, test_association.sort)
+	end
+
+	def test_randomize_monopartite_net_by_nodes
+		nodes =  @monopartite_network.get_nodes_from_layer(@monopartite_layers[0].first).length	
+		edges = @monopartite_network.get_edge_number
+		
+		@monopartite_network.randomize_monopartite_net_by_nodes([@monopartite_layers[0].first])
+		
+		random_nodes =  @monopartite_network.get_nodes_from_layer(@monopartite_layers[0].first).length	
+		random_edges = @monopartite_network.get_edge_number
+		assert_equal([nodes, edges], [random_nodes, random_edges])
+
+	end
+	
+	def test_randomize_bipartite_net_by_nodes
+		layerA_nodes = @network_obj.get_nodes_from_layer(@bipartite_layers[0].first).length
+		layerB_nodes = @network_obj.get_nodes_from_layer(@bipartite_layers[1].first).length
+		edges = @network_obj.get_edge_number
+		
+		@network_obj.randomize_bipartite_net_by_nodes(@bipartite_layers.map(&:first))
+	
+		random_layerA_nodes = @network_obj.get_nodes_from_layer(@bipartite_layers[0].first).length
+		random_layerB_nodes = @network_obj.get_nodes_from_layer(@bipartite_layers[1].first).length
+		random_edges = @network_obj.get_edge_number
+		assert_equal([layerA_nodes, layerB_nodes, edges], [random_layerA_nodes, random_layerB_nodes, random_edges])
+
+	end
+	
+	def test_randomize_monopartite_net_by_links
+		previous_degree = @monopartite_network.get_degree(zscore = false)
+	
+		@monopartite_network.randomize_monopartite_net_by_links([@monopartite_layers[0].first])
+	
+		random_degree = @monopartite_network.get_degree(zscore = false)
+		assert_equal(previous_degree, random_degree)
+	end
+	
+	def test_randomize_bipartite_net_by_links
+		previous_degree = @network_obj.get_degree(zscore = false)
+	
+		@network_obj.randomize_bipartite_net_by_links(@bipartite_layers.map(&:first))
+	
+		random_degree = @network_obj.get_degree(zscore = false)
+		assert_equal(previous_degree, random_degree)
 	end
 end
