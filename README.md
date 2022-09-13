@@ -1,7 +1,7 @@
 # NetAnalyzer
  
 NetAnalyzer is a network analysis tool that can be used to calculate the associations between nodes in unweighted n-partite networks [1]. The calculation of the association between nodes is based on similarity indices (Jaccard, Simpson, geometric and cosine), statistic-based (Pearson correlation coefficient, CSI and  hypergeometric) [2] and a special metric designed only for tripartite networks (here called as 'transference' method [3]). The user can choose the association index method according to the network to analyse. The tool gives a table of results, with all the associations between nodes and the association value calculated.
-
+ 
 If you use this tool, please cite us: [1] E. Rojano, P. Seoane, A. Bueno, J. R. Perkins & J. A. G. Ranea. Revealing the Relationship Between Human Genome Regions and Pathological Phenotypes Through Network Analysis. Lecture Notes in Computer Science, Vol 10208, 197-207 (2017).
 
 [2] Fuxman-Bass et al. Using networks to measure similarity between genes: association index selection. Nature Methods, 10(12):1169-76. 2013.
