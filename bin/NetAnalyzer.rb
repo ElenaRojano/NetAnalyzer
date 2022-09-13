@@ -242,8 +242,9 @@ if !options[:meth].nil?
   		line.chomp!
   		control << line.split("\t")
   	end
-  	fullNet.load_control(control)
-  	performance = fullNet.get_pred_rec(options[:meth])
+  	Performancer.load_control(control)
+    predictions = fullNet.association_values[options[:meth]]
+  	performance = Performancer.get_pred_rec(predictions)
   	File.open(options[:performance_file], 'w') do |f|
   		f.puts %w[cut prec rec meth].join("\t")
   		performance.each do |item|
