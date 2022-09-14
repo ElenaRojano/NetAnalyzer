@@ -69,6 +69,17 @@ class Adv_mat_calc # Advanced matrix calculations
 		return matrix_result
 	end
 
+	# Alaimo 2014, doi: 10.3389/fbioe.2014.00071
+	def self.tranference_resources(matrix1, matrix2, lambda_value1 = 0.5, lambda_value2 = 0.5)
+		m1rowNumber, m1colNumber = matrix1.shape
+		m2rowNumber, m2colNumber = matrix2.shape
+		#puts m1rowNumber, m1colNumber, m2rowNumber, m2colNumber
+		matrix1Weight = self.graphWeights(m1colNumber, m1rowNumber, matrix1.transpose, lambda_value1)
+		matrix2Weight = self.graphWeights(m2colNumber, m2rowNumber, matrix2.transpose, lambda_value2)
+		matrixWeightProduct = Numo::Linalg.dot(matrix1Weight, Numo::Linalg.dot(matrix2, matrix2Weight))
+		finalMatrix = Numo::Linalg.dot(matrix1, matrixWeightProduct)
+		return finalMatrix
+	end
 
 	def self.graphWeights(rowsNumber, colsNumber, inputMatrix, lambdaValue = 0.5)
 	 	ky = (1.0 / inputMatrix.sum(0)).diag #sum cols

@@ -5,13 +5,11 @@ class NetworkTest < Minitest::Test
 
 	def setup
 		@bipartite_layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/]]
-		@network_obj = Network.new(@bipartite_layers.map{|layer| layer.first})
-		@network_obj.load_network_by_pairs(File.join(ROOT_PATH, 'bipartite_network_for_validating.txt'), @bipartite_layers)
+		@network_obj = Net_parser.load_network_by_pairs(File.join(ROOT_PATH, 'bipartite_network_for_validating.txt'), @bipartite_layers)
 		@network_obj.generate_adjacency_matrix(@bipartite_layers[0].first, @bipartite_layers[1].first)
 
 		@monopartite_layers = [[:main, /\w/], [:main, /\w/]]
-		@monopartite_network = Network.new(@monopartite_layers.map{|layer| layer.first})
-		@monopartite_network.load_network_by_pairs(File.join(ROOT_PATH, 'monopartite_network_for_validating.txt'), @monopartite_layers)
+		@monopartite_network = Net_parser.load_network_by_pairs(File.join(ROOT_PATH, 'monopartite_network_for_validating.txt'), @monopartite_layers)
 		@monopartite_network.generate_adjacency_matrix(@monopartite_layers[0].first, @monopartite_layers[0].first)
 	end
 

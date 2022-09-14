@@ -48,11 +48,11 @@ class Network
 	end
 
 	def add_edge(nodeID1, nodeID2)
-		query_edge(nodeID1, nodeID2)
-		query_edge(nodeID2, nodeID1)
+		add_edge2hash(nodeID1, nodeID2)
+		add_edge2hash(nodeID2, nodeID1)
 	end
 
-	def query_edge(nodeA, nodeB)
+	def add_edge2hash(nodeA, nodeB)
 		query = @edges[nodeA]
 		if query.nil?
 			@edges[nodeA] = [nodeB]
@@ -60,6 +60,47 @@ class Network
 			query << nodeB
 		end
 	end
+
+	def set_layer(layer_definitions, node_name)
+		layer = nil
+		if layer_definitions.length > 1
+			layer_definitions.each do |layer_name, regexp|
+				if node_name =~ regexp
+					layer = layer_name
+					break
+				end
+			end
+			raise("The node '#{node_name}' not match with any layer regex") if layer.nil?			
+		else
+			layer = layer_definitions.first.first
+		end
+		@layers << layer if !@layers.include?(layer)
+		return layer
+	end
+
+	def generate_adjacency_matrix(layerA, layerB)
+		layerAidNodes = @nodes.select{|id, node| node.type == layerA}.keys
+		layerBidNodes = @nodes.select{|id, node| node.type == layerB}.keys
+		matrix = Numo::DFloat.zeros(layerAidNodes.length, layerBidNodes.length)
+		layerAidNodes.each_with_index do |nodeA, i|
+			layerBidNodes.each_with_index do |nodeB, j|
+				if @edges[nodeB].include?(nodeA)
+					matrix[i, j] = 1
+				else
+					matrix[i, j] = 0
+				end
+			end
+		end
+		all_info_matrix = [matrix, layerAidNodes, layerBidNodes]
+
+		if layerA == layerB
+			@adjacency_matrices[[layerA]] = all_info_matrix
+		else
+			@adjacency_matrices[[layerA, layerB]] = all_info_matrix
+		end
+		return all_info_matrix
+	end
+
 
 	def delete_nodes(node_list, mode='d')
 		if mode == 'd'
@@ -102,27 +143,6 @@ class Network
 		return bipartite_subgraph
 	end
 
-	def load_network_by_pairs(file, layers, split_character="\t")
-		File.open(file).each do |line|
-			line.chomp!
-			pair = line.split(split_character)
-			node1 = pair[0]
-			node2 = pair[1]
-			add_node(node1, set_layer(layers, node1))
-			add_node(node2, set_layer(layers, node2))
-			add_edge(node1, node2)	
-		end
-	end
-
-	def load_network_by_bin_matrix(input_file, node_file, layers)
-		node_names = load_input_list(node_file)
-		@adjacency_matrices[layers.map{|l| l.first}] = [Numo::NArray.load(input_file, type='npy'), node_names, node_names]
-	end
-
-	def load_network_by_plain_matrix(input_file, node_file, layers, splitChar)
-		node_names = load_input_list(node_file)
-		@adjacency_matrices[layers.map{|l| l.first}] = [Numo::NArray.load(input_file, type='txt', splitChar=splitChar), node_names, node_names]
-	end
 
 	def get_edge_number
 		node_connections = get_degree(zscore = false).values.inject(0){|sum, n| sum + n}
@@ -458,29 +478,6 @@ class Network
 		return shared_nodes
 	end
 
-	def generate_adjacency_matrix(layerA, layerB)
-		layerAidNodes = @nodes.select{|id, node| node.type == layerA}.keys
-		layerBidNodes = @nodes.select{|id, node| node.type == layerB}.keys
-		matrix = Numo::DFloat.zeros(layerAidNodes.length, layerBidNodes.length)
-		layerAidNodes.each_with_index do |nodeA, i|
-			layerBidNodes.each_with_index do |nodeB, j|
-				if @edges[nodeB].include?(nodeA)
-					matrix[i, j] = 1
-				else
-					matrix[i, j] = 0
-				end
-			end
-		end
-		all_info_matrix = [matrix, layerAidNodes, layerBidNodes]
-
-		if layerA == layerB
-			@adjacency_matrices[[layerA]] = all_info_matrix
-		else
-			@adjacency_matrices[[layerA, layerB]] = all_info_matrix
-		end
-		return all_info_matrix
-	end
-
 	def clean_autorelations_on_association_values
 		@association_values.each do |meth, values|
 			values.select!{|relation| @nodes[relation[0]].type != @nodes[relation[1]].type}
@@ -523,20 +520,13 @@ class Network
 
 	## association methods adjacency matrix based
 	#---------------------------------------------------------
-	# Alaimo 2014, doi: 10.3389/fbioe.2014.00071
 	def get_association_by_transference_resources(firstPairLayers, secondPairLayers, lambda_value1 = 0.5, lambda_value2 = 0.5)
 		relations = []
 		matrix1 = @adjacency_matrices[firstPairLayers].first
-		rowIds = @adjacency_matrices[firstPairLayers][1]
 		matrix2 = @adjacency_matrices[secondPairLayers].first
+		finalMatrix = Adv_mat_calc.tranference_resources(matrix1, matrix2, lambda_value1 = lambda_value1, lambda_value2 = lambda_value2)
+		rowIds = @adjacency_matrices[firstPairLayers][1]
 		colIds =  @adjacency_matrices[secondPairLayers][2]
-		m1rowNumber, m1colNumber = matrix1.shape
-		m2rowNumber, m2colNumber = matrix2.shape
-		#puts m1rowNumber, m1colNumber, m2rowNumber, m2colNumber
-		matrix1Weight = Adv_mat_calc.graphWeights(m1colNumber, m1rowNumber, matrix1.transpose, lambda_value1)
-		matrix2Weight = Adv_mat_calc.graphWeights(m2colNumber, m2rowNumber, matrix2.transpose, lambda_value2)
-		matrixWeightProduct = Numo::Linalg.dot(matrix1Weight, Numo::Linalg.dot(matrix2, matrix2Weight))
-		finalMatrix = Numo::Linalg.dot(matrix1, matrixWeightProduct)
 		relations = matrix2relations(finalMatrix, rowIds, colIds)
 		@association_values[:transference] = relations
 		return relations
@@ -707,25 +697,6 @@ class Network
 		end
 	end
 
-	def add_record(hash, node1, node2)
-		query = hash[node1]
-		if query.nil?
-			hash[node1] = [node2]
-		else
-			query << node2
-		end
-	end
-
-	def add_nested_record(hash, node1, node2, val)
-		query_node1 = hash[node1]
-		if query_node1.nil?
-			hash[node1] = {node2 => val}
-		else
-			query_node1[node2] = val
-		end
-	end
-
-
 	def get_csi_associations(layers, base_layer)
 		pcc_relations = get_pcc_associations(layers, base_layer)
 		clean_autorelations_on_association_values if layers.length > 1
@@ -865,8 +836,22 @@ class Network
 	#######################################################################################
 	private
 
-	def load_input_list(file)
-		return File.open(file).readlines.map!{|line| line.chomp}
+	def add_record(hash, node1, node2)
+		query = hash[node1]
+		if query.nil?
+			hash[node1] = [node2]
+		else
+			query << node2
+		end
+	end
+
+	def add_nested_record(hash, node1, node2, val)
+		query_node1 = hash[node1]
+		if query_node1.nil?
+			hash[node1] = {node2 => val}
+		else
+			query_node1[node2] = val
+		end
 	end
 
  	def exist_connections?(ids_connected_to_n1, ids_connected_to_n2)
@@ -878,24 +863,6 @@ class Network
 		end
 		return res
 	end
-
-	def set_layer(layer_definitions, node_name)
-		layer = nil
-		if layer_definitions.length > 1
-			layer_definitions.each do |layer_name, regexp|
-				if node_name =~ regexp
-					layer = layer_name
-					break
-				end
-			end
-			raise("The node '#{node_name}' not match with any layer regex") if layer.nil?			
-		else
-			layer = layer_definitions.first.first
-		end
-		@layers << layer if !@layers.include?(layer)
-		return layer
-	end
-
 
 	def matrix2relations(finalMatrix, rowIds, colIds)
 		relations = []
