@@ -163,219 +163,6 @@ class Network
 		return degree
 	end
 
-	def get_node_attributes(attr_names)
-		attrs = []
-		attr_names.each do |attr_name|
-			if attr_name == 'get_degree'
-				attrs << get_degree
-			elsif attr_name == 'get_degreeZ'
-				attrs << get_degree(zscore=true)
-			end
-		end
-		node_ids = attrs.first.keys
-		node_attrs = []
-		node_ids.each do |n|
-			node_attrs << [n].concat(attrs.map{|at| at[n]})
-		end
-		return node_attrs
-	end
-
-	def plot_network(options = {})
-		net_data = {
-			group_nodes: @group_nodes,
-			reference_nodes: @reference_nodes,
-			nodes: @nodes,
-			edges: @edges,
-			layers: @layers
-		}
-		Net_plotter.new(net_data, options)
-	end
-
-	def compute_group_metrics(output_filename)
-		metrics = []
-		header = ['group']
-		@group_nodes.keys.each do |k|
-			metrics << [k]
-		end
-		header << 'comparative_degree'
-		comparative_degree = communities_comparative_degree(@group_nodes)
-		comparative_degree.each_with_index{|val,i| metrics[i] << replace_nil_vals(val)}
-		header << 'avg_sht_path'
-		avg_sht_path = communities_avg_sht_path(@group_nodes)
-		avg_sht_path.each_with_index{|val,i| metrics[i] << replace_nil_vals(val)}
-		if !@reference_nodes.empty?
-			header.concat(%w[node_com_assoc_by_edge node_com_assoc_by_node])
-			node_com_assoc = compute_node_com_assoc_in_precomputed_communities(@group_nodes, @reference_nodes.first)
-			node_com_assoc.each_with_index{|val,i| metrics[i].concat(val)}
-		end
-		File.open(output_filename, 'w') do |f|
-			f.puts header.join("\t")
-			metrics.each do |gr|
-				f. puts gr.join("\t")
-			end
-		end
-	end
-
-	def replace_nil_vals(val)
-		return val.nil? ? 'NULL' : val
-	end
-
-	def communities_comparative_degree(coms) 
-		comparative_degrees = []
-		coms.each do |com_id, com|
-			comparative_degrees << compute_comparative_degree(com)
-		end
-		return comparative_degrees
-	end
-
-	def communities_avg_sht_path(coms) 
-		avg_sht_path = []
-		coms.each do |com_id, com|
-			dist, paths = compute_avg_sht_path(com)
-			avg_sht_path << dist
-		end
-		return avg_sht_path
-	end
-
-	def compute_node_com_assoc_in_precomputed_communities(coms, ref_node)
-		node_com_assoc = []
-		coms.each do |com_id, com|
-			node_com_assoc << [compute_node_com_assoc(com, ref_node)]
-		end
-		return node_com_assoc
-	end
-
-	def compute_comparative_degree(com) # see Girvan-Newman Benchmark control parameter in http://networksciencebook.com/chapter/9#testing (communities chapter)
-		internal_degree = 0
-		external_degree = 0
-		com.each do |nodeID|
-			nodeIDneigh = @edges[nodeID]
-			next if nodeIDneigh.nil?
-			internal_degree += (nodeIDneigh & com).length
-			external_degree += (nodeIDneigh - com).length
-		end
-		comparative_degree = external_degree.fdiv(external_degree + internal_degree)
-		return comparative_degree
-	end
-
-	def compute_avg_sht_path(com, paths=false)
-		path_lengths = []
-		all_paths = []
-		group = com.dup
-		while !group.empty?
-			node_start = group.shift
-			sht_paths = Parallel.map(group, in_processes: @threads) do |node_stop|
-			#group.each do |node_stop|
-				dist, path = shortest_path(node_start, node_stop, paths)
-				[dist, path]
-				#path_lengths << dist if !dist.nil?
-				#all_paths << path if !path.empty?
-			end
-			sht_paths.each do |dist, path|
-				path_lengths << dist
-				all_paths << path				
-			end
-		end
-		if path_lengths.include?(nil)
-			avg_sht_path = nil
-		else
-			avg_sht_path = path_lengths.inject(0){|sum,l| sum + l}.fdiv(path_lengths.length)
-		end
-		return avg_sht_path, all_paths
-	end
-
-	# https://pythoninwonderland.wordpress.com/2017/03/18/how-to-implement-breadth-first-search-in-python/
-	# finds shortest path between 2 nodes of a graph using BFS
-	def bfs_shortest_path(start, goal, paths=false)
-		dist = nil
-	    explored = {} # keep track of explored nodes
-	    previous = {}
-	    queue = [[start, 0]] # keep track of all the paths to be checked
-	    is_goal = false
-	    while !queue.empty? && !is_goal # keeps looping until all possible paths have been checked
-	        node, dist = queue.pop # pop the first path from the queue
-	        if !explored.include?(node) # get the last node from the path
-	            neighbours = @edges[node] 
-	            explored[node] = true # mark node as explored
-	            next if neighbours.nil?
-	            dist += 1 
-	            neighbours.each do |neighbour| # go through all neighbour nodes, construct a new path
-	            	next if explored.include?(neighbour)
-	                queue.unshift([neighbour, dist]) # push it into the queue
-	                previous[neighbour] = node if paths
-	                if neighbour == goal # return path if neighbour is goal
-	                	is_goal = true
-	                	break
-	                end
-	            end
-	        end
-	    end
-		if is_goal
-			path = build_path(previous, start, goal) if paths
-		else
-			dist = nil 
-			path = []
-		end
-	    return dist, path
-	end
-
-	def build_path(previous, startNode, stopNode)
-		path = []
-		currentNode = stopNode
-		path << currentNode
-		while currentNode != startNode
-		    currentNode = previous[currentNode]
-			path << currentNode
-		end
-		return path
-	end
-
-	def shortest_path(node_start, node_stop, paths=false)
-		#https://betterprogramming.pub/5-ways-to-find-the-shortest-path-in-a-graph-88cfefd0030f
-		#return bidirectionalSearch(node_start, node_stop)
-		#https://efficientcodeblog.wordpress.com/2017/12/13/bidirectional-search-two-end-bfs/
-		dist, all_paths = bfs_shortest_path(node_start, node_stop, paths)
-		return  dist, all_paths
-	end
-
-	def expand_clusters(expand_method)
-		clusters = {}
-		@group_nodes.each do |id, nodes|
-			if expand_method == 'sht_path'
-				dist, paths = compute_avg_sht_path(nodes, paths=true) # this uses bfs, maybe Dijkstra is the best one
-				new_nodes = paths.flatten.uniq
-				clusters[id] = nodes | new_nodes # If some node pair are not connected, recover them
-			end
-		end
-		return clusters
-	end
-
-	def compute_node_com_assoc(com, ref_node)
-		ref_cons = 0
-		ref_secondary_cons = 0
-		secondary_nodes = {}
-		other_cons = 0
-		other_nodes = {}
-
-		refNneigh = @edges[ref_node]
-		com.each do |nodeID|
-			nodeIDneigh = @edges[nodeID]
-			next if nodeIDneigh.nil?
-			ref_cons += 1 if nodeIDneigh.include?(ref_node)
-			if !refNneigh.nil?
-				common_nodes = nodeIDneigh & refNneigh
-				common_nodes.each {|id| secondary_nodes[id] = true}
-				ref_secondary_cons += common_nodes.length 
-			end
-			specific_nodes = nodeIDneigh - refNneigh - [ref_node]
-			specific_nodes.each {|id| other_nodes[id] = true}
-			other_cons += specific_nodes.length
-		end
-		by_edge = (ref_cons + ref_secondary_cons).fdiv(other_cons)
-		by_node = (ref_cons + secondary_nodes.length).fdiv(other_nodes.length)
-		return by_edge, by_node
-	end
-
 	def get_all_intersections
 		intersection_lengths = get_all_pairs do |node1, node2|
 			intersection(node1, node2).length
@@ -457,7 +244,6 @@ class Network
 		return nodeIDsA, nodeIDsB
 	end
 
-
 	def get_nodes_layer(layers)
 		#for creating ny value in hypergeometric and pcc index
 		nodes = []
@@ -469,23 +255,230 @@ class Network
 
 	def intersection(node1, node2)
 		shared_nodes = []
-		associatedIDs_node1 = @edges[node1]
-		associatedIDs_node2 = @edges[node2]
-		intersectedIDs = associatedIDs_node1 & associatedIDs_node2
+		intersectedIDs = @edges[node1] & @edges[node1]
 		intersectedIDs.each do |id|
 			shared_nodes << @nodes[id]
 		end
 		return shared_nodes
 	end
 
+	def compute_avg_sht_path(com, paths=false)
+		path_lengths = []
+		all_paths = []
+		group = com.dup
+		while !group.empty?
+			node_start = group.shift
+			sht_paths = Parallel.map(group, in_processes: @threads) do |node_stop|
+				dist, path = shortest_path(node_start, node_stop, paths)
+				[dist, path]
+			end
+			sht_paths.each do |dist, path|
+				path_lengths << dist
+				all_paths << path				
+			end
+		end
+		if path_lengths.include?(nil)
+			avg_sht_path = nil
+		else
+			avg_sht_path = path_lengths.inject(0){|sum,l| sum + l}.fdiv(path_lengths.length)
+		end
+		return avg_sht_path, all_paths
+	end
+
+	# https://pythoninwonderland.wordpress.com/2017/03/18/how-to-implement-breadth-first-search-in-python/
+	# finds shortest path between 2 nodes of a graph using BFS
+	def bfs_shortest_path(start, goal, paths=false)
+		dist = nil
+	    explored = {} # keep track of explored nodes
+	    previous = {}
+	    queue = [[start, 0]] # keep track of all the paths to be checked
+	    is_goal = false
+	    while !queue.empty? && !is_goal # keeps looping until all possible paths have been checked
+	        node, dist = queue.pop # pop the first path from the queue
+	        if !explored.include?(node) # get the last node from the path
+	            neighbours = @edges[node] 
+	            explored[node] = true # mark node as explored
+	            next if neighbours.nil?
+	            dist += 1 
+	            neighbours.each do |neighbour| # go through all neighbour nodes, construct a new path
+	            	next if explored.include?(neighbour)
+	                queue.unshift([neighbour, dist]) # push it into the queue
+	                previous[neighbour] = node if paths
+	                if neighbour == goal # return path if neighbour is goal
+	                	is_goal = true
+	                	break
+	                end
+	            end
+	        end
+	    end
+		if is_goal
+			path = build_path(previous, start, goal) if paths
+		else
+			dist = nil 
+			path = []
+		end
+	    return dist, path
+	end
+
+	def build_path(previous, startNode, stopNode)
+		path = []
+		currentNode = stopNode
+		path << currentNode
+		while currentNode != startNode
+		    currentNode = previous[currentNode]
+			path << currentNode
+		end
+		return path
+	end
+
+	def shortest_path(node_start, node_stop, paths=false)
+		#https://betterprogramming.pub/5-ways-to-find-the-shortest-path-in-a-graph-88cfefd0030f
+		#return bidirectionalSearch(node_start, node_stop)
+		#https://efficientcodeblog.wordpress.com/2017/12/13/bidirectional-search-two-end-bfs/
+		dist, all_paths = bfs_shortest_path(node_start, node_stop, paths)
+		return  dist, all_paths
+	end
+
+	def get_node_attributes(attr_names)
+		attrs = []
+		attr_names.each do |attr_name|
+			if attr_name == 'get_degree'
+				attrs << get_degree
+			elsif attr_name == 'get_degreeZ'
+				attrs << get_degree(zscore=true)
+			end
+		end
+		node_ids = attrs.first.keys
+		node_attrs = []
+		node_ids.each do |n|
+			node_attrs << [n].concat(attrs.map{|at| at[n]})
+		end
+		return node_attrs
+	end
+
+	def plot_network(options = {})
+		net_data = {
+			group_nodes: @group_nodes,
+			reference_nodes: @reference_nodes,
+			nodes: @nodes,
+			edges: @edges,
+			layers: @layers
+		}
+		Net_plotter.new(net_data, options)
+	end
+
+	# Compute communities/group properties
+	#----------------------------------------------
+	def compute_group_metrics(output_filename)
+		metrics = []
+		header = ['group']
+		@group_nodes.keys.each do |k|
+			metrics << [k]
+		end
+		header << 'comparative_degree'
+		comparative_degree = communities_comparative_degree(@group_nodes)
+		comparative_degree.each_with_index{|val,i| metrics[i] << replace_nil_vals(val)}
+		header << 'avg_sht_path'
+		avg_sht_path = communities_avg_sht_path(@group_nodes)
+		avg_sht_path.each_with_index{|val,i| metrics[i] << replace_nil_vals(val)}
+		if !@reference_nodes.empty?
+			header.concat(%w[node_com_assoc_by_edge node_com_assoc_by_node])
+			node_com_assoc = compute_node_com_assoc_in_precomputed_communities(@group_nodes, @reference_nodes.first)
+			node_com_assoc.each_with_index{|val,i| metrics[i].concat(val)}
+		end
+		File.open(output_filename, 'w') do |f|
+			f.puts header.join("\t")
+			metrics.each do |gr|
+				f. puts gr.join("\t")
+			end
+		end
+	end
+
+	def communities_comparative_degree(coms) 
+		comparative_degrees = []
+		coms.each do |com_id, com|
+			comparative_degrees << compute_comparative_degree(com)
+		end
+		return comparative_degrees
+	end
+
+	def communities_avg_sht_path(coms) 
+		avg_sht_path = []
+		coms.each do |com_id, com|
+			dist, paths = compute_avg_sht_path(com)
+			avg_sht_path << dist
+		end
+		return avg_sht_path
+	end
+
+	def compute_node_com_assoc_in_precomputed_communities(coms, ref_node)
+		node_com_assoc = []
+		coms.each do |com_id, com|
+			node_com_assoc << [compute_node_com_assoc(com, ref_node)]
+		end
+		return node_com_assoc
+	end
+
+	def compute_comparative_degree(com) # see Girvan-Newman Benchmark control parameter in http://networksciencebook.com/chapter/9#testing (communities chapter)
+		internal_degree = 0
+		external_degree = 0
+		com.each do |nodeID|
+			nodeIDneigh = @edges[nodeID]
+			next if nodeIDneigh.nil?
+			internal_degree += (nodeIDneigh & com).length
+			external_degree += (nodeIDneigh - com).length
+		end
+		comparative_degree = external_degree.fdiv(external_degree + internal_degree)
+		return comparative_degree
+	end
+
+	def compute_node_com_assoc(com, ref_node)
+		ref_cons = 0
+		ref_secondary_cons = 0
+		secondary_nodes = {}
+		other_cons = 0
+		other_nodes = {}
+
+		refNneigh = @edges[ref_node]
+		com.each do |nodeID|
+			nodeIDneigh = @edges[nodeID]
+			next if nodeIDneigh.nil?
+			ref_cons += 1 if nodeIDneigh.include?(ref_node)
+			if !refNneigh.nil?
+				common_nodes = nodeIDneigh & refNneigh
+				common_nodes.each {|id| secondary_nodes[id] = true}
+				ref_secondary_cons += common_nodes.length 
+			end
+			specific_nodes = nodeIDneigh - refNneigh - [ref_node]
+			specific_nodes.each {|id| other_nodes[id] = true}
+			other_cons += specific_nodes.length
+		end
+		by_edge = (ref_cons + ref_secondary_cons).fdiv(other_cons)
+		by_node = (ref_cons + secondary_nodes.length).fdiv(other_nodes.length)
+		return by_edge, by_node
+	end
+
+	def expand_clusters(expand_method)
+		clusters = {}
+		@group_nodes.each do |id, nodes|
+			if expand_method == 'sht_path'
+				dist, paths = compute_avg_sht_path(nodes, paths=true) # this uses bfs, maybe Dijkstra is the best one
+				new_nodes = paths.flatten.uniq
+				clusters[id] = nodes | new_nodes # If some node pair are not connected, recover them
+			end
+		end
+		return clusters
+	end
+
+
+	## ASSOCIATION METHODS
+	############################################################
 	def clean_autorelations_on_association_values
 		@association_values.each do |meth, values|
 			values.select!{|relation| @nodes[relation[0]].type != @nodes[relation[1]].type}
 		end
 	end
 
-	## ASSOCIATION METHODS
-	############################################################
 	def get_association_values(layers, base_layer, meth)
 		relations = [] #node A, node B, val
 		if meth == :counts
@@ -835,6 +828,10 @@ class Network
 	## AUXILIAR METHODS
 	#######################################################################################
 	private
+
+	def replace_nil_vals(val)
+		return val.nil? ? 'NULL' : val
+	end
 
 	def add_record(hash, node1, node2)
 		query = hash[node1]
