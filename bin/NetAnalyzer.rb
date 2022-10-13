@@ -179,22 +179,12 @@ end.parse!
 ##########################
 #MAIN
 ##########################
-fullNet = Network.new(options[:layers].map{|layer| layer.first})
+puts "Loading network data"
+fullNet = Net_parser.load(options)
 fullNet.reference_nodes = options[:reference_nodes]
 fullNet.threads = options[:threads]
 fullNet.group_nodes = options[:group_nodes]
 fullNet.set_compute_pairs(options[:use_pairs], !options[:no_autorelations])
-#puts options[:layers].map{|layer| layer.first}.inspect
-puts "Loading network data"
-if options[:input_format] == 'pair'
-  fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:split_char])
-elsif options[:input_format] == 'bin'
-  fullNet.load_network_by_bin_matrix(options[:input_file], options[:node_file], options[:layers])
-elsif options[:input_format] == 'matrix'
-  fullNet.load_network_by_plain_matrix(options[:input_file], options[:node_file], options[:layers], options[:splitChar])
-else
-  raise("ERROR: The format #{options[:input_format]} is not defined")
-end
 
 if !options[:delete_nodes].empty?
   node_list = load_file(options[:delete_nodes].first).flatten
@@ -242,8 +232,9 @@ if !options[:meth].nil?
   		line.chomp!
   		control << line.split("\t")
   	end
-  	fullNet.load_control(control)
-  	performance = fullNet.get_pred_rec(options[:meth])
+  	Performancer.load_control(control)
+    predictions = fullNet.association_values[options[:meth]]
+  	performance = Performancer.get_pred_rec(predictions)
   	File.open(options[:performance_file], 'w') do |f|
   		f.puts %w[cut prec rec meth].join("\t")
   		performance.each do |item|
