@@ -87,6 +87,7 @@ ranker = Ranker.new()
 ranker.matrix = Npy.load(options[:kernel_file])
 ranker.load_nodes_from_file(options[:node_file])
 ranker.load_seeds(options[:genes_seed], sep: options[:seed_genes_sep])
+ranker.load_references(options[:filter], sep: ",") if !options[:filter].nil?
 ranker.do_ranking(leave_one_out: options[:leave_one_out], threads: options[:threads])
 rankings = ranker.ranking
 
@@ -108,8 +109,7 @@ if !options[:top_n].nil?
   end
 end
 
-if !options[:filter].nil? && !options[:leave_one_out]
-  ranker.load_references(options[:filter], sep: ",")
+if !options[:filter].nil?
   rankings = ranker.get_reference_ranks
 end
 

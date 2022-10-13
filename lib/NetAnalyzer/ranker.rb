@@ -47,22 +47,41 @@ class Ranker
   end
 
   def do_ranking(leave_one_out: false, threads: 0)
-    if leave_one_out
-      @seeds.each do |seed_name, seeds|  
-        @ranking[seed_name] = leave_one_out_validation(seeds) # Benchmarking mode
+    get_seed_leave_one_out() if leave_one_out
+    seed_indexes = get_seed_indexes
+    seed_groups = @seeds.to_a # Array conversion needed for parallelization
+    ranked_lists = Parallel.map(seed_groups, in_processes: threads) do |seed_name, seed|
+      # The code in this block CANNOT modify nothing outside
+      if leave_one_out and @reference_nodes[seed_name].length <= 1
+         rank_list = get_individual_rank(seed,@reference_nodes[seed_name][0])
+      else
+         rank_list = rank_by_seed(seed_indexes, seed) # Production mode
       end
-    else
-      seed_indexes = get_seed_indexes
-      seed_groups = @seeds.to_a # Array conversion needed for parallelization
-      ranked_lists = Parallel.map(seed_groups, in_processes: threads) do |seed_name, seed|
-        # The code in this block CANNOT modify nothing outside
-        rank_list = rank_by_seed(seed_indexes, seed) # Production mode
-        [seed_name, rank_list]
-      end
-      ranked_lists.each do |seed_name, rank_list| # Transfer resuls to hash
-        @ranking[seed_name] = rank_list
+      [seed_name, rank_list] 
+    end
+    ranked_lists.each do |seed_name, rank_list| # Transfer resuls to hash
+      @ranking[seed_name] = rank_list
+    end
+  end
+
+  def get_seed_leave_one_out()
+    new_seeds = {}
+    genes2predict = {}
+    all_genes = @seeds.values.flatten.uniq
+    @seeds.each do |seed_name, seeds| 
+      group_number = seeds.length - 1
+      one_out_seeds = seeds.combination(group_number).to_a
+
+      one_out_seeds.each_with_index do |one_out_seed, indx|
+        seed_name_one_out = seed_name.to_s + "_" + indx.to_s
+        new_seeds[seed_name_one_out] = one_out_seed
+        genes2predict[seed_name_one_out] = seeds - one_out_seed
+        genes2predict[seed_name_one_out] += @reference_nodes[seed_name] if !@reference_nodes[seed_name].nil?
+        genes2predict[seed_name_one_out].uniq!
       end
     end
+    @seeds = new_seeds
+    @reference_nodes = genes2predict
   end
 
   def rank_by_seed(seed_indexes, seeds)
@@ -133,24 +152,10 @@ class Ranker
     return ranking_with_new_column
   end
 
-  def leave_one_out_validation(seed_genes)
-    group_number = seed_genes.length - 1
-    one_out_seeds = seed_genes.combination(group_number).to_a
-    
-    out_genes_score = []
-    one_out_seeds.each do |one_out_seed|
-      gene_to_predict = seed_genes - one_out_seed
-      gene_to_predict = gene_to_predict[0]
-      ranked_one_out = get_individual_rank(one_out_seed, gene_to_predict)
-      out_genes_score << ranked_one_out if !ranked_one_out.nil?
-    end
-    return out_genes_score
-  end
-
   def get_individual_rank(seed_genes, node_of_interest)
     genes_pos = get_nodes_indexes(seed_genes)
     node_of_interest_pos = @nodes.find_index(node_of_interest)
-    ordered_gene_score = nil
+    ordered_gene_score = []
 
     if !genes_pos.empty? && !node_of_interest_pos.nil?
 
@@ -169,7 +174,7 @@ class Ranker
       rank = members_below_test
       rank_absolute = get_individual_absolute_rank(integrated_gen_values.to_a,ref_value)
 
-      ordered_gene_score = [node_of_interest, ref_value, rank_percentage, rank, rank_absolute]
+      ordered_gene_score << [node_of_interest, ref_value, rank_percentage, rank, rank_absolute]
     end
 
     return ordered_gene_score
@@ -188,20 +193,31 @@ class Ranker
     return ref_pos
   end
 
-
   def get_reference_ranks
     filtered_ranked_genes = {}
     
-  	@ranking.each do |seed_name, ranking|
-  	  filtered_ranked_genes[seed_name] = []
-      next if @reference_nodes[seed_name].nil?
-  	  ranking.each do |rank|
-  	    next if !@reference_nodes[seed_name].include?(rank[0])
-  	    filtered_ranked_genes[seed_name] << rank
-  	  end
-  	end
-      
+    @ranking.each do |seed_name, ranking|
+      next if @reference_nodes[seed_name].nil? or ranking.empty?
+
+      ranking = array2hash(ranking,0,(1..ranking[0].length))
+      references = @reference_nodes[seed_name]
+      filtered_ranked_genes[seed_name] = []
+
+      references.each do |reference|
+        rank = ranking[reference]
+        if !rank.nil?
+          filtered_ranked_genes[seed_name] << [reference] + rank
+        end
+      end
+      filtered_ranked_genes[seed_name].sort_by!{|rank| -rank[1]}
+    end
     return filtered_ranked_genes
+  end
+
+  def array2hash(arr, key, values)
+    h = {}
+    arr.each{|els| h[els[0]] = els[values]}
+    return h
   end
 
   def get_top(top_n)

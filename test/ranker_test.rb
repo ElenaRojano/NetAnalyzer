@@ -31,6 +31,17 @@ class RankerTest < Minitest::Test
 			fields = line.split("\t")
 			seed_name = fields.shift
 			values = fields[0].split(";").map{|row| row.split(",")}
+			values.each do |row|
+				row.map!.with_index do |val,idx| 
+					if idx == 0
+						val 
+					elsif idx >= 3 
+						val = val.to_i
+					else
+						val = val.to_f
+					end
+				end
+			end
 			ranked_genes[seed_name] = values
 		end
 		return ranked_genes
