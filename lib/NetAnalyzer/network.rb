@@ -14,7 +14,7 @@ require 'semtools'
 require 'expcalc'
 
 
-class Network
+class Network 
 
 	attr_accessor :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads
 
@@ -36,6 +36,24 @@ class Network
 		@loaded_obos = []
 		@ontologies = []
 		@layer_ontologies = {}
+	end
+
+	def clone
+		@threads = @threads.clone
+		@nodes = @nodes.clone
+		@edges = @edges.clone
+		@reference_nodes = @reference_nodes.clone
+		@group_nodes = @group_nodes.clone
+		@adjacency_matrices = @adjacency_matrices.clone
+		@kernels = @kernels.clone
+		@layers = @layers.clone
+		@association_values = @association_values.clone
+		@control_connections = @control_connections.clone
+		@compute_pairs = @compute_pairs.clone
+		@compute_autorelations = @compute_autorelations.clone
+		@loaded_obos = @loaded_obos.clone
+		@ontologies = @ontologies.clone
+		@layer_ontologies = @layer_ontologies.clone
 	end
 
 	def set_compute_pairs(use_pairs, get_autorelations)
