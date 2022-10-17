@@ -761,24 +761,41 @@ class Network
 
 	## RAMDOMIZATION METHODS
 	############################################################
-	def randomize_monopartite_net_by_nodes(layer)
-		nodeIds = @adjacency_matrices[layer][1]
+	def randomize_monopartite_net_by_nodes
+		layer = @layers.first
+		random_network = self.clone
+		if @adjacency_matrices[@layers].nil?
+			@adjacency_matrices[@layers] = @edges.to_bmatrix
+		end
+		nodeIds = @adjacency_matrices[@layers][1]
 		nodeIds.shuffle!
-		@adjacency_matrices[layer][1] = nodeIds
-		@adjacency_matrices[layer][2] = nodeIds
+		@adjacency_matrices[@layers][1] = nodeIds
+		@adjacency_matrices[@layers][2] = nodeIds
+		@edges = @adjacency_matrices[@layers].first.bmatrix_squared_to_hash(nodeIds) if @edges.empty?
+		return random_network
 	end	
 
-	def randomize_bipartite_net_by_nodes(layers)
-		layerA, layerB = layers
-		rowIds = @adjacency_matrices[[layerA, layerB]][1]
+	def randomize_bipartite_net_by_nodes
+		layerA = @layers.first
+		layerB = @layers.last
+		random_network = self.clone
+		if @adjacency_matrices[@layers].nil?
+			@adjacency_matrices[@layers] = @edges.to_bmatrix
+		end
+		rowIds = @adjacency_matrices[@layers][1]
+		colIds = @adjacency_matrices[@layers][2]
 		rowIds.shuffle!
-		@adjacency_matrices[[layerA, layerB]][1] = rowIds
+		@adjacency_matrices[@layers][1] = rowIds
+		@edges = @adjacency_matrices[@layers].first.bmatrix_squared_to_hash(rowIds) if !@edges.empty?		
+		return random_network
 	end
 
-	def randomize_monopartite_net_by_links(layers)
+	def randomize_monopartite_net_by_links
+		layer = @layers.first
 		nodesA = []
 		nodesB = []
-		relations = diagonal2relations(@adjacency_matrices[layers].first, @adjacency_matrices[layers][1], @adjacency_matrices[layers][2])
+		## cambio a la funcion creada en el numo_expansion
+		relations = diagonal2relations(@adjacency_matrices[@layers].first, @adjacency_matrices[@layers][1], @adjacency_matrices[@layers][2])
 		relations.each do |relation|
 			nodesA << relation[0]
 			nodesB << relation[1]
@@ -791,16 +808,20 @@ class Network
 				index_nodeB += 1
 			end
 			nodeB = nodesB.delete_at(index_nodeB)
-			# if nodeB.nil? randomize_monopartite_net_by_links(layers)
+			# if nodeB.nil? randomize_monopartite_net_by_links(@layers)
 			add_edge(nodeA, nodeB)
 		end
-		generate_adjacency_matrix(layers[0], layers[0])
+		generate_adjacency_matrix(@layers[0], layer_arr[0])
 	end
 
 
 	def randomize_bipartite_net_by_links(layers) 
 		nodesA = []
 		nodesB = []
+		#compruebo si existe la matriz
+		if @adjacency_matrices[layers].nil?
+			@adjacency_matrices[layers] = @edges.to_bmatrix()
+		end
 		relations = matrix2relations(@adjacency_matrices[layers].first, @adjacency_matrices[layers][1], @adjacency_matrices[layers][2])
 		relations.each do |relation|
 			nodesA << relation[0]
@@ -815,6 +836,26 @@ class Network
 		generate_adjacency_matrix(layers[0], layers[1])
 
 	end
+
+	def randomize_network(random_type)
+		if random_type == 'nodes'
+			if @layers.length == 1
+				random_network = self.randomize_monopartite_net_by_nodes
+			elsif @layers.length == 2
+				random_network = self.randomize_bipartite_net_by_nodes
+    		end
+    	elsif random_type == 'links'
+    		if @layers.length == 1
+				random_network = self.randomize_monopartite_net_by_links
+			elsif @layers.length == 2
+				random_network = self.randomize_bipartite_net_by_links
+			end
+    	else
+    		abort("ERROR: The randomization is not available for #{random_type} types of nodes")
+		end
+		return random_network
+	end
+	
 
 	def save_adjacency_matrix(layerA, layerB, output_file)
 		if layerA == layerB

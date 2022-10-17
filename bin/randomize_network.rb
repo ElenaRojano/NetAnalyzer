@@ -60,9 +60,6 @@ end.parse!
 #MAIN
 ##########################
 fullNet = Network.new(options[:layers].map{|layer| layer.first})
-#fullNet.threads = options[:threads]
-#fullNet.group_nodes = options[:group_nodes]
-#puts options[:layers].map{|layer| layer.first}.inspect
 puts "Loading network data"
 
 if options[:layers].length == 1
@@ -74,7 +71,6 @@ end
 
 if options[:input_format] == 'pair'
   fullNet.load_network_by_pairs(options[:input_file], options[:layers], options[:split_char])
-  fullNet.generate_adjacency_matrix(layerA, layerB)
 elsif options[:input_format] == 'bin' && !options[:node_file].nil?
   fullNet.load_network_by_bin_matrix(options[:input_file], options[:node_file], options[:layers])
 elsif options[:input_format] == 'matrix' && !options[:node_file].nil?
@@ -85,34 +81,9 @@ else
 end
 
 
-if options[:type_random] == 'nodes'
-  if options[:layers].length == 1
-    fullNet.randomize_monopartite_net_by_nodes(layer)
-    #fullNet.build_edges_from_adjacency_matrix([layer])
-  elsif options[:layers].length == 2
-    fullNet.randomize_bipartite_net_by_nodes(layerA, layerB)
-    #fullNet.build_edges_from_adjacency_matrix([layerA, layerB])
+fullNet.randomize_network(options[:type_random])
 
-  else 
-    raise("ERROR: The randomization is not available for #{options[:layers].length} types of nodes")
-    exit
-  end
-elsif options[:type_random] == 'links'
-  if options[:layers].length == 1
-    fullNet.randomize_monopartite_net_by_links([layer])
-    #fullNet.build_nodes_from_adjacency_matrix(options[:layers], [layer])
-  elsif options[:layers].length == 2
-    fullNet.randomize_bipartite_net_by_links([layerA, layerB])
-    #fullNet.build_nodes_from_adjacency_matrix(options[:layers], [layerA, layerB])
-  else
-    raise("ERROR: The randomization is not available for #{options[:layers].length} types of nodes")
-    exit
-  end
-else
-  raise("ERROR: The #{options[:type_random]}-based random is not defined")
-  exit
-end
 
-fullNet.save_adjacency_matrix(layerA, layerB, options[:output_file])
+#fullNet.save_adjacency_matrix(layerA, layerB, options[:output_file])
 
 
