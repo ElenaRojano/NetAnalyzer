@@ -73,7 +73,7 @@ class Ranker
       one_out_seeds = seeds.combination(group_number).to_a
 
       one_out_seeds.each_with_index do |one_out_seed, indx|
-        seed_name_one_out = seed_name.to_s + "_" + indx.to_s
+        seed_name_one_out = seed_name.to_s + "_iteration_" + indx.to_s
         new_seeds[seed_name_one_out] = one_out_seed
         genes2predict[seed_name_one_out] = seeds - one_out_seed
         genes2predict[seed_name_one_out] += @reference_nodes[seed_name] if !@reference_nodes[seed_name].nil?
