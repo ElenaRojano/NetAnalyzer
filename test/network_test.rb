@@ -4,6 +4,9 @@ require File.join(ROOT_PATH, 'test_helper.rb')
 class NetworkTest < Minitest::Test
 
 	def setup
+		@tripartite_layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/], [:salient, /S[0-9]+/]]
+		@tripartite_network = Net_parser.load_network_by_pairs(File.join(ROOT_PATH, 'tripartite_network_for_validating.txt'), @tripartite_layers)
+
 		@bipartite_layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/]]
 		@network_obj = Net_parser.load_network_by_pairs(File.join(ROOT_PATH, 'bipartite_network_for_validating.txt'), @bipartite_layers)
 		@network_obj.generate_adjacency_matrix(@bipartite_layers[0].first, @bipartite_layers[1].first)
@@ -20,6 +23,142 @@ class NetworkTest < Minitest::Test
 		assert_equal(10, test_projection_layer)
 		test_connections = @network_obj.get_edge_number
 		assert_equal(40, test_connections)	
+	end
+
+	def test_add_node
+		network_clone = @network_obj.deep_clone
+		new_node = 'M8'
+		network_clone.add_node(new_node, network_clone.set_layer(@bipartite_layers, new_node))
+		nodes_main = network_clone.get_nodes_from_layer(:main)
+		test_add_node = nodes_main.include?('M8')
+		assert_equal true, test_add_node
+	end
+
+	def test_add_edge
+		network_clone = @network_obj.deep_clone
+		node_1 = 'M8'
+		node_2 = 'M9'
+		network_clone.add_node(node_1, network_clone.set_layer(@bipartite_layers, node_1))
+		network_clone.add_node(node_2, network_clone.set_layer(@bipartite_layers, node_2))
+		network_clone.add_edge(node_1, node_2)
+		test_node_1 = network_clone.get_connected_nodes('M9', :main).include?('M8')
+		assert_equal true, test_node_1
+		test_node_1 = network_clone.get_connected_nodes('M8', :main).include?('M9')
+		assert_equal true, test_node_1
+	end
+
+	def test_add_edge2hash
+		network_clone = @network_obj.deep_clone
+		node_1 = 'M8'
+		node_2 = 'M9'
+		network_clone.add_node(node_2, network_clone.set_layer(@bipartite_layers, node_2))
+		network_clone.add_edge2hash(node_1, node_2)
+		result_test = network_clone.get_connected_nodes('M8', :main).include?('M9')
+		assert_equal true, test_add_edge
+	end
+
+	def test_set_layer
+		network_clone = @network_obj.deep_clone
+		node_name = "M8"
+		layer_test = network_clone.set_layer(@bipartite_layers, node_name)
+		expected_result = :main
+		assert_equal expected_result, layer_test
+	end
+
+	def test_generate_adjacency_matrix
+		
+	end
+
+	def test_delete_nodes_d_mono
+		network_clone = @monopartite_network.deep_clone
+		network_clone.delete_nodes(['E'])
+		nodes_test_result = network_clone.get_nodes_layer([:main]).length
+		assert_equal 4, nodes_test_result
+		edges_test_result = network_clone.get_edge_number
+		assert_equal 2, edges_test_result
+	end
+
+	def test_delete_nodes_d_bi
+		network_clone = @network_obj.deep_clone
+		network_clone.delete_nodes(['M1', 'M2'])
+		nodes_test_result = network_clone.get_nodes_layer([:main]).length
+		assert_equal 4, nodes_test_result
+		edges_test_result = network_clone.get_edge_number
+		assert_equal 20, edges_test_result
+	end
+
+	def test_delete_nodes_r_mono
+		network_clone = @monopartite_network.deep_clone
+		network_clone.delete_nodes(['E'])
+		nodes_test_result = network_clone.get_nodes_layer([:main]).length
+		assert_equal 4, nodes_test_result
+		edges_test_result = network_clone.get_edge_number
+		assert_equal 2, edges_test_result
+	end
+
+	def test_delete_nodes_r_bi
+		network_clone = @network_obj.deep_clone
+		network_clone.delete_nodes(['M1', 'M2'])
+		nodes_test_result = network_clone.get_nodes_layer([:main]).length
+		assert_equal 4, nodes_test_result
+		edges_test_result = network_clone.get_edge_number
+		assert_equal 20, edges_test_result
+	end
+
+	def test_get_connected_nodes
+		test_result = @monopartite_network.get_connected_nodes('A', :main)
+		expected_result = ['C', 'E']
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_nodes_from_layer
+		test_result = @network_obj.get_nodes_from_layer(:main)
+		expected_result = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_edge_number
+		edge_number_test = @monopartite_network.get_edge_number
+		assert_equal 4, edge_number_test
+	end
+
+	def test_collect_nodes_no_autorr
+		network_clone = @tripartite_network.deep_clone
+		network_clone.set_compute_pairs(:all, false)
+		nodesA_test, nodesB_test = network_clone.collect_nodes({:layers =>[:main, :salient]})
+		expected_result_nodesA = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+		expected_result_nodesB = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6']
+		assert_equal expected_result_nodesA, nodesA_test
+		assert_equal expected_result_nodesB, nodesB_test
+	end
+
+	def test_collect_nodes_autorr
+		nodesA_test, nodesB_test = @tripartite_network.collect_nodes({:layers =>[:main, :salient]})
+		expected_result_nodesA = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6']
+		expected_result_nodesB = nil
+		assert_equal expected_result_nodesA, nodesA_test
+		assert_equal expected_result_nodesB, nodesB_test
+	end
+
+	def test_collect_nodes_autorr_all
+		nodesA_test, nodesB_test = @network_obj.collect_nodes({:layers => :all})
+		expected_result_nodesA = ['M1', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10', 'M2', 'M3', 'M4', 'M5', 'M6']
+		expected_result_nodesB = nil
+		assert_equal expected_result_nodesA, nodesA_test
+		assert_equal expected_result_nodesB, nodesB_test
+	end
+
+	def test_get_nodes_layer
+		nodes_from_layers_test = @tripartite_network.get_nodes_layer([:main, :salient]).map{|node| node.id}
+		expected_result = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 
+			'S1', 'S2', 'S3', 'S4', 'S5', 'S6']
+		assert_equal expected_result, nodes_from_layers_test
+	end
+
+	def test_intersection
+		test_result = @network_obj.intersection('M3', 'M6').map{|node| node.id}
+		expected_result = ['P1', 'P2']
+		assert_equal expected_result, test_result
 	end
 
 	def test_get_counts_association
