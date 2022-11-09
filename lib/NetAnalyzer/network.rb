@@ -194,9 +194,9 @@ class Network
 	end
 
 	def get_all_pairs(args = {})
-		all_pairs = []
+		all_pairs = [] #lo que se devolvera
 		default = {:layers => :all}
-		args = default.merge(args)
+		args = default.merge(args) 
 		nodeIDsA, nodeIDsB = collect_nodes(args)
 		if @compute_autorelations
 			if @compute_pairs == :all
@@ -278,7 +278,7 @@ class Network
 
 	def intersection(node1, node2)
 		shared_nodes = []
-		intersectedIDs = @edges[node1] & @edges[node1]
+		intersectedIDs = @edges[node1] & @edges[node2]
 		intersectedIDs.each do |id|
 			shared_nodes << @nodes[id]
 		end
