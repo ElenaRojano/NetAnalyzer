@@ -16,7 +16,7 @@ require 'expcalc'
 
 class Network 
 
-	attr_accessor :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads
+	attr_accessor :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads, :compute_pairs, :compute_autorelations
 
 	## BASIC METHODS
 	############################################################
@@ -54,6 +54,10 @@ class Network
 		@loaded_obos = @loaded_obos.clone
 		@ontologies = @ontologies.clone
 		@layer_ontologies = @layer_ontologies.clone
+	end
+
+	def deep_clone
+		Marshal::load(Marshal::dump(self))
 	end
 
 	def set_compute_pairs(use_pairs, get_autorelations)
