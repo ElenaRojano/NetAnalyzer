@@ -186,8 +186,8 @@ class Network
 		return degree
 	end
 
-	def get_all_intersections
-		intersection_lengths = get_all_pairs do |node1, node2|
+	def get_all_intersections(args = {})
+		intersection_lengths = get_all_pairs(args) do |node1, node2|
 			intersection(node1, node2).length
 		end
 		return intersection_lengths
