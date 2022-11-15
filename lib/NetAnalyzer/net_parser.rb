@@ -29,7 +29,7 @@ class Net_parser
 		return net
 	end
 
-	def self.load_network_by_bin_matrix(net, input_file, node_file, layers)
+	def self.load_network_by_bin_matrix(input_file, node_file, layers)
 		net = Network.new(layers.map{|layer| layer.first})
 		node_names = load_input_list(node_file)
 		net.adjacency_matrices[layers.map{|l| l.first}] = [Numo::NArray.load(input_file, type='npy'), node_names, node_names]
