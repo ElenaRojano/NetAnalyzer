@@ -5,14 +5,14 @@ class NetworkTest < Minitest::Test
 
 	def setup
 		@tripartite_layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/], [:salient, /S[0-9]+/]]
-		@tripartite_network = Net_parser.load_network_by_pairs(File.join(ROOT_PATH, 'tripartite_network_for_validating.txt'), @tripartite_layers)
+		@tripartite_network = Net_parser.load_network_by_pairs(File.join(DATA_TEST_PATH, 'tripartite_network_for_validating.txt'), @tripartite_layers)
 
 		@bipartite_layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/]]
-		@network_obj = Net_parser.load_network_by_pairs(File.join(ROOT_PATH, 'bipartite_network_for_validating.txt'), @bipartite_layers)
+		@network_obj = Net_parser.load_network_by_pairs(File.join(DATA_TEST_PATH, 'bipartite_network_for_validating.txt'), @bipartite_layers)
 		@network_obj.generate_adjacency_matrix(@bipartite_layers[0].first, @bipartite_layers[1].first)
 
 		@monopartite_layers = [[:main, /\w/], [:main, /\w/]]
-		@monopartite_network = Net_parser.load_network_by_pairs(File.join(ROOT_PATH, 'monopartite_network_for_validating.txt'), @monopartite_layers)
+		@monopartite_network = Net_parser.load_network_by_pairs(File.join(DATA_TEST_PATH, 'monopartite_network_for_validating.txt'), @monopartite_layers)
 		@monopartite_network.generate_adjacency_matrix(@monopartite_layers[0].first, @monopartite_layers[0].first)
 	end
 
@@ -65,10 +65,6 @@ class NetworkTest < Minitest::Test
 		assert_equal expected_result, layer_test
 	end
 
-	def test_generate_adjacency_matrix
-		
-	end
-
 	def test_delete_nodes_d_mono
 		network_clone = @monopartite_network.deep_clone
 		network_clone.delete_nodes(['E'])
@@ -117,12 +113,80 @@ class NetworkTest < Minitest::Test
 		assert_equal expected_result, test_result
 	end
 
+	def test_get_bipartite_subgraph
+		bipartirte_test = @tripartite_network.get_bipartite_subgraph(['M1', 'M2', 'M3', 'M4', 'M5', 'M6'], :salient, :projection)
+		expected_result = {'P1' =>["S2"], "P2"=>["S2"], "P3"=>["S1", "S6"], "P4"=>["S2"], "P5"=>["S1", "S4"], "P6"=>[], "P7"=>["S3"], "P8"=>["S5"], "P9"=>["S6"], "P10"=>["S4", "S6"]}
+		assert_equal expected_result, bipartirte_test
+	end
+
 	def test_get_edge_number
 		edge_number_test = @monopartite_network.get_edge_number
 		assert_equal 4, edge_number_test
 	end
 
-	def test_collect_nodes_no_autorr
+	def test_get_degree
+		degree_test = @monopartite_network.get_degree
+		expected_result = {'A' => 0.8164965809277259, 'C' => -1.2247448713915894, 'E' => 0.8164965809277259, 'B' => -1.2247448713915894, 'D' => 0.8164965809277259}
+		assert_equal expected_result, degree_test
+	end
+
+	def test_get_all_intersections_autorr_all_layers_conn
+		network_clone = @monopartite_network.deep_clone
+		test_result = network_clone.get_all_intersections()
+		expected_result = [1, 1, 1]
+		assert_equal expected_result, test_result
+		
+	end
+
+	def test_get_all_intersections_autorr_all_layers_all
+		network_clone = @monopartite_network.deep_clone
+		network_clone.set_compute_pairs(:all, true)
+		test_result = network_clone.get_all_intersections()
+		expected_result = [0, 0, 0, 1, 1, 0, 0, 1, 0, 0]
+		assert_equal expected_result, test_result
+		
+	end
+
+	def test_get_all_intersections_no_autorr_some_layers_conn
+		network_clone = @tripartite_network.deep_clone
+		network_clone.set_compute_pairs(:conn, false)
+		test_result = network_clone.get_all_intersections({:layers =>[:main, :salient]})
+		expected_result = [2, 3, 1, 2, 1, 3, 2, 3, 1, 2, 1, 3, 2, 3, 1, 1, 1, 1, 2, 3, 1, 1, 1, 3, 1, 2]
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_intersections_no_autorr_all_layers_conn
+		network_clone = @tripartite_network.deep_clone
+		network_clone.set_compute_pairs(:conn, false)
+		test_result = network_clone.get_all_intersections()
+		expected_result = []
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_intersections_no_autorr_all
+		network_clone = @network_obj.deep_clone
+		network_clone.set_compute_pairs(:all, false)
+		#test_result = network_clone.get_all_intersections()
+		## como comprobar que da errorr???
+	end
+
+	def test_collect_nodes_autorr_some_layers
+		nodesA_test, nodesB_test = @tripartite_network.collect_nodes({:layers =>[:main, :salient]})
+		expected_result_nodesA = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6']
+		expected_result_nodesB = nil
+		assert_equal expected_result_nodesA, nodesA_test
+		assert_equal expected_result_nodesB, nodesB_test
+	end
+
+	def test_collect_nodes_autorr_all_layers
+		nodesA_test, nodesB_test = @network_obj.collect_nodes({:layers => :all})
+		expected_result_nodesA = ['M1', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10', 'M2', 'M3', 'M4', 'M5', 'M6']
+		expected_result_nodesB = nil
+		assert_equal expected_result_nodesA, nodesA_test
+		assert_equal expected_result_nodesB, nodesB_test
+	end
+
+	def test_collect_nodes_no_autorr_some_layers
 		network_clone = @tripartite_network.deep_clone
 		network_clone.set_compute_pairs(:all, false)
 		nodesA_test, nodesB_test = network_clone.collect_nodes({:layers =>[:main, :salient]})
@@ -132,20 +196,12 @@ class NetworkTest < Minitest::Test
 		assert_equal expected_result_nodesB, nodesB_test
 	end
 
-	def test_collect_nodes_autorr
-		nodesA_test, nodesB_test = @tripartite_network.collect_nodes({:layers =>[:main, :salient]})
-		expected_result_nodesA = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6']
-		expected_result_nodesB = nil
-		assert_equal expected_result_nodesA, nodesA_test
-		assert_equal expected_result_nodesB, nodesB_test
-	end
-
-	def test_collect_nodes_autorr_all
-		nodesA_test, nodesB_test = @network_obj.collect_nodes({:layers => :all})
-		expected_result_nodesA = ['M1', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10', 'M2', 'M3', 'M4', 'M5', 'M6']
-		expected_result_nodesB = nil
-		assert_equal expected_result_nodesA, nodesA_test
-		assert_equal expected_result_nodesB, nodesB_test
+	def test_collect_nodes_no_autorr_all_layers
+		network_clone = @tripartite_network.deep_clone
+		network_clone.set_compute_pairs(:conn, false)
+		nodesA_test, nodesB_test = network_clone.collect_nodes({:layers => :all})
+		assert_equal nil, nodesA_test
+		assert_equal nil, nodesB_test
 	end
 
 	def test_get_nodes_layer
@@ -160,7 +216,7 @@ class NetworkTest < Minitest::Test
 		expected_result = ['P1', 'P2']
 		assert_equal expected_result, test_result
 	end
-
+=begin
 	def test_get_counts_association
 		test_association = @network_obj.get_counts_association([:main], :projection) 
 		test_association.map!{|a| [a[0], a[1], a[2]]}
@@ -310,4 +366,5 @@ class NetworkTest < Minitest::Test
 		random_degree = @network_obj.get_degree(zscore = false)
 		assert_equal(previous_degree, random_degree)
 	end
+=end
 end
