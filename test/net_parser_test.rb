@@ -1,6 +1,5 @@
 ROOT_PATH = File.dirname(__FILE__)
 require File.join(ROOT_PATH, 'test_helper.rb')
-require "numo/narray"
 
 class Net_parserTest < Minitest::Test
 
