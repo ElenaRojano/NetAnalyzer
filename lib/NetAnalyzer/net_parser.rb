@@ -44,7 +44,7 @@ class Net_parser
 	end
 
 	private
-	def load_input_list(file)
+	def self.load_input_list(file)
 		return File.open(file).readlines.map!{|line| line.chomp}
 	end
 end
