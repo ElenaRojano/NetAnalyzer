@@ -16,7 +16,7 @@ require 'expcalc'
 
 class Network 
 
-	attr_accessor :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads
+	attr_accessor :adjacency_matrices, :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads
 
 	## BASIC METHODS
 	############################################################
@@ -154,9 +154,9 @@ class Network
 		bipartite_subgraph = {}
 		from_layer_node_ids.each do |from_layer_node_id| 
 			connected_nodes = @edges[from_layer_node_id]
-			connected_nodes.each do |connected_node| 
+			connected_nodes.each do |connected_node|
 				if @nodes[connected_node].type == to_layer
-					query = bipartite_subgraph[connected_node]
+					query = bipartite_subgraph[connected_node] 
 					if query.nil?
 						bipartite_subgraph[connected_node] = get_connected_nodes(connected_node, from_layer)
 					end
