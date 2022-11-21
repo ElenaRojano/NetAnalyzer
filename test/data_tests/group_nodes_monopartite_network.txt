@@ -1,0 +1,7 @@
+CL1 'B'
+CL1 'D'
+CL2	'A'
+CL2	'C'
+CL3	'A'
+CL3	'D'
+CL3	'E'
