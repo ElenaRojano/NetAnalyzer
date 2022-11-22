@@ -366,9 +366,9 @@ class Network
 		attrs = []
 		attr_names.each do |attr_name|
 			if attr_name == 'get_degree'
-				attrs << get_degree
+				attrs << get_degree(zscore=false)
 			elsif attr_name == 'get_degreeZ'
-				attrs << get_degree(zscore=true)
+				attrs << get_degree
 			end
 		end
 		node_ids = attrs.first.keys
