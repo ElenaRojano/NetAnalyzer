@@ -129,9 +129,15 @@ class NetworkTest < Minitest::Test
 		assert_equal 4, edge_number_test
 	end
 
-	def test_get_degree
+	def test_get_degree_zscore
 		degree_test = @monopartite_network.get_degree
 		expected_result = {'A' => 0.8164965809277259, 'C' => -1.2247448713915894, 'E' => 0.8164965809277259, 'B' => -1.2247448713915894, 'D' => 0.8164965809277259}
+		assert_equal expected_result, degree_test
+	end
+
+	def test_get_degree
+		degree_test = @monopartite_network.get_degree(zscore=false)
+		expected_result = {'A' => 2, 'C' => 1, 'E' => 2, 'B' => 1, 'D' => 2}
 		assert_equal expected_result, degree_test
 	end
 
@@ -223,7 +229,13 @@ class NetworkTest < Minitest::Test
 
 	def test_get_node_attributes
 		node_attribute_test = @monopartite_network.get_node_attributes(['get_degree'])
-		expected_result = [['A', 0.8164965809277259], ['C', -1.2247448713915894], ['E', 0.8164965809277259],['B', -1.2247448713915894], ['D', 0.8164965809277259]]
+		expected_result = [['A', 2], ['C', 1], ['E', 2],['B', 1], ['D', 2]]
+		assert_equal expected_result, node_attribute_test
+	end
+
+	def test_get_node_attributes_zscore
+		node_attribute_test = @monopartite_network.get_node_attributes(['get_degreeZ', 'get_degree'])
+		expected_result = [['A', 0.8164965809277259, 2], ['C', -1.2247448713915894, 1], ['E', 0.8164965809277259, 2],['B', -1.2247448713915894, 1], ['D', 0.8164965809277259, 2]]
 		assert_equal expected_result, node_attribute_test
 	end
 
