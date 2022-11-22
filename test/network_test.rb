@@ -16,15 +16,6 @@ class NetworkTest < Minitest::Test
 		@monopartite_network.generate_adjacency_matrix(@monopartite_layers[0].first, @monopartite_layers[0].first)
 	end
 
-	def test_load_network_by_pairs
-		test_main_layer = @network_obj.get_nodes_layer([:main]).length
-		assert_equal(6, test_main_layer)
-		test_projection_layer = @network_obj.get_nodes_layer([:projection]).length
-		assert_equal(10, test_projection_layer)
-		test_connections = @network_obj.get_edge_number
-		assert_equal(40, test_connections)	
-	end
-
 	def test_add_node
 		network_clone = @network_obj.deep_clone
 		new_node = 'M8'
@@ -63,6 +54,20 @@ class NetworkTest < Minitest::Test
 		layer_test = network_clone.set_layer(@bipartite_layers, node_name)
 		expected_result = :main
 		assert_equal expected_result, layer_test
+	end
+
+	def test_generate_adjacency_matrix_monopartite
+		test_result = @monopartite_network.adjacency_matrices
+		matrix_values = Numo::DFloat[[0, 1, 1, 0, 0],[1, 0, 0, 0, 0], [1, 0, 0, 0, 1], [0, 0, 0, 0, 1], [0, 0, 1, 1, 0]]
+		expected_result = {[:main] => [matrix_values, ['A', 'C', 'E', 'B', 'D'], ['A', 'C', 'E', 'B', 'D']]} 
+		assert_equal expected_result, test_result	
+	end
+
+	def test_generate_adjacency_matrix_bipartite
+		test_result = @network_obj.adjacency_matrices
+		matrix_values = Numo::DFloat[[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 0, 0], [1, 1, 1, 1, 1, 1, 0, 0, 0, 0],[1, 1, 1, 1, 0, 0, 0, 0, 0, 0], [1, 1, 0, 0, 0, 0, 0, 0, 0, 0]]
+		expected_result = {[:main, :projection] => [matrix_values, ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'], ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10']]} 
+		assert_equal expected_result, test_result	
 	end
 
 	def test_delete_nodes_d_mono
@@ -173,17 +178,16 @@ class NetworkTest < Minitest::Test
 	def test_collect_nodes_autorr_some_layers
 		nodesA_test, nodesB_test = @tripartite_network.collect_nodes({:layers =>[:main, :salient]})
 		expected_result_nodesA = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6']
-		expected_result_nodesB = nil
 		assert_equal expected_result_nodesA, nodesA_test
-		assert_equal expected_result_nodesB, nodesB_test
+		assert_nil nodesB_test
+
 	end
 
 	def test_collect_nodes_autorr_all_layers
 		nodesA_test, nodesB_test = @network_obj.collect_nodes({:layers => :all})
 		expected_result_nodesA = ['M1', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10', 'M2', 'M3', 'M4', 'M5', 'M6']
-		expected_result_nodesB = nil
 		assert_equal expected_result_nodesA, nodesA_test
-		assert_equal expected_result_nodesB, nodesB_test
+		assert_nil nodesB_test
 	end
 
 	def test_collect_nodes_no_autorr_some_layers
@@ -200,8 +204,8 @@ class NetworkTest < Minitest::Test
 		network_clone = @tripartite_network.deep_clone
 		network_clone.set_compute_pairs(:conn, false)
 		nodesA_test, nodesB_test = network_clone.collect_nodes({:layers => :all})
-		assert_equal nil, nodesA_test
-		assert_equal nil, nodesB_test
+		assert_nil nodesA_test
+		assert_nil nodesB_test
 	end
 
 	def test_get_nodes_layer
@@ -216,6 +220,13 @@ class NetworkTest < Minitest::Test
 		expected_result = ['P1', 'P2']
 		assert_equal expected_result, test_result
 	end
+
+	def test_get_node_attributes
+		node_attribute_test = @monopartite_network.get_node_attributes(['get_degree'])
+		expected_result = [['A', 0.8164965809277259], ['C', -1.2247448713915894], ['E', 0.8164965809277259],['B', -1.2247448713915894], ['D', 0.8164965809277259]]
+		assert_equal expected_result, node_attribute_test
+	end
+
 =begin
 	def test_get_counts_association
 		test_association = @network_obj.get_counts_association([:main], :projection) 
