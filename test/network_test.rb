@@ -222,12 +222,12 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_node_attributes
-		node_attribute_test = @monopartite_network.get_node_attributes(['get_degree'])
-		expected_result = [['A', 0.8164965809277259], ['C', -1.2247448713915894], ['E', 0.8164965809277259],['B', -1.2247448713915894], ['D', 0.8164965809277259]]
+		node_attribute_test = @monopartite_network.get_node_attributes(['get_degreeZ', "get_degree"])
+		expected_result = [["A", 0.8164965809277259, 2], ["C", -1.2247448713915894, 1], ["E", 0.8164965809277259, 2], ["B", -1.2247448713915894, 1], ["D", 0.8164965809277259, 2]]
+
 		assert_equal expected_result, node_attribute_test
 	end
 
-=begin
 	def test_get_counts_association
 		test_association = @network_obj.get_counts_association([:main], :projection) 
 		test_association.map!{|a| [a[0], a[1], a[2]]}
@@ -240,6 +240,7 @@ class NetworkTest < Minitest::Test
 		end
 		assert_equal(all_association_values.sort, test_association.sort)
 	end
+=begin
 
 	def test_get_jaccard_association
 		test_association = @network_obj.get_jaccard_association([:main], :projection) 
