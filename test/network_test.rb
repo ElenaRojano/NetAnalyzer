@@ -16,8 +16,23 @@ class NetworkTest < Minitest::Test
 		@monopartite_network.generate_adjacency_matrix(@monopartite_layers[0].first, @monopartite_layers[0].first)
 	end
 
+	def test_clone
+		network_clone = @network_obj.clone
+		test_adjacency_matrices = @network_obj.adjacency_matrices
+		assert_equal test_adjacency_matrices, network_clone.adjacency_matrices		
+	end
+
+	def test_clone_change
+		network_clone = @network_obj.clone
+		network_clone.add_node('M8', network_clone.set_layer(@bipartite_layers, 'M8'))
+		test_nochange_origin = @network_obj.get_nodes_from_layer(:main).length
+		assert_equal 6, test_nochange_origin
+		test_change_clone = network_clone.get_nodes_from_layer(:main).length
+		assert_equal 7, test_change_clone
+	end
+
 	def test_add_node
-		network_clone = @network_obj.deep_clone
+		network_clone = @network_obj.clone
 		new_node = 'M8'
 		network_clone.add_node(new_node, network_clone.set_layer(@bipartite_layers, new_node))
 		nodes_main = network_clone.get_nodes_from_layer(:main)
@@ -26,7 +41,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_add_edge
-		network_clone = @network_obj.deep_clone
+		network_clone = @network_obj.clone
 		node_1 = 'M8'
 		node_2 = 'M9'
 		network_clone.add_node(node_1, network_clone.set_layer(@bipartite_layers, node_1))
@@ -39,7 +54,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_add_edge2hash
-		network_clone = @network_obj.deep_clone
+		network_clone = @network_obj.clone
 		node_1 = 'M8'
 		node_2 = 'M9'
 		network_clone.add_node(node_2, network_clone.set_layer(@bipartite_layers, node_2))
@@ -49,7 +64,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_set_layer
-		network_clone = @network_obj.deep_clone
+		network_clone = @network_obj.clone
 		node_name = "M8"
 		layer_test = network_clone.set_layer(@bipartite_layers, node_name)
 		expected_result = :main
@@ -71,7 +86,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_delete_nodes_d_mono
-		network_clone = @monopartite_network.deep_clone
+		network_clone = @monopartite_network.clone
 		network_clone.delete_nodes(['E'])
 		nodes_test_result = network_clone.get_nodes_layer([:main]).length
 		assert_equal 4, nodes_test_result
@@ -80,7 +95,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_delete_nodes_d_bi
-		network_clone = @network_obj.deep_clone
+		network_clone = @network_obj.clone
 		network_clone.delete_nodes(['M1', 'M2'])
 		nodes_test_result = network_clone.get_nodes_layer([:main]).length
 		assert_equal 4, nodes_test_result
@@ -89,7 +104,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_delete_nodes_r_mono
-		network_clone = @monopartite_network.deep_clone
+		network_clone = @monopartite_network.clone
 		network_clone.delete_nodes(['E'])
 		nodes_test_result = network_clone.get_nodes_layer([:main]).length
 		assert_equal 4, nodes_test_result
@@ -98,7 +113,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_delete_nodes_r_bi
-		network_clone = @network_obj.deep_clone
+		network_clone = @network_obj.clone
 		network_clone.delete_nodes(['M1', 'M2'])
 		nodes_test_result = network_clone.get_nodes_layer([:main]).length
 		assert_equal 4, nodes_test_result
@@ -142,7 +157,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_all_intersections_autorr_all_layers_conn
-		network_clone = @monopartite_network.deep_clone
+		network_clone = @monopartite_network.clone
 		test_result = network_clone.get_all_intersections()
 		expected_result = [1, 1, 1]
 		assert_equal expected_result, test_result
@@ -150,7 +165,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_all_intersections_autorr_all_layers_all
-		network_clone = @monopartite_network.deep_clone
+		network_clone = @monopartite_network.clone
 		network_clone.set_compute_pairs(:all, true)
 		test_result = network_clone.get_all_intersections()
 		expected_result = [0, 0, 0, 1, 1, 0, 0, 1, 0, 0]
@@ -159,7 +174,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_all_intersections_no_autorr_some_layers_conn
-		network_clone = @tripartite_network.deep_clone
+		network_clone = @tripartite_network.clone
 		network_clone.set_compute_pairs(:conn, false)
 		test_result = network_clone.get_all_intersections({:layers =>[:main, :salient]})
 		expected_result = [2, 3, 1, 2, 1, 3, 2, 3, 1, 2, 1, 3, 2, 3, 1, 1, 1, 1, 2, 3, 1, 1, 1, 3, 1, 2]
@@ -167,7 +182,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_all_intersections_no_autorr_all_layers_conn
-		network_clone = @tripartite_network.deep_clone
+		network_clone = @tripartite_network.clone
 		network_clone.set_compute_pairs(:conn, false)
 		test_result = network_clone.get_all_intersections()
 		expected_result = []
@@ -175,7 +190,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_all_intersections_no_autorr_all
-		network_clone = @network_obj.deep_clone
+		network_clone = @network_obj.clone
 		network_clone.set_compute_pairs(:all, false)
 		#test_result = network_clone.get_all_intersections()
 		## como comprobar que da errorr???
@@ -197,7 +212,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_collect_nodes_no_autorr_some_layers
-		network_clone = @tripartite_network.deep_clone
+		network_clone = @tripartite_network.clone
 		network_clone.set_compute_pairs(:all, false)
 		nodesA_test, nodesB_test = network_clone.collect_nodes({:layers =>[:main, :salient]})
 		expected_result_nodesA = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
@@ -207,7 +222,7 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_collect_nodes_no_autorr_all_layers
-		network_clone = @tripartite_network.deep_clone
+		network_clone = @tripartite_network.clone
 		network_clone.set_compute_pairs(:conn, false)
 		nodesA_test, nodesB_test = network_clone.collect_nodes({:layers => :all})
 		assert_nil nodesA_test
@@ -228,7 +243,6 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_node_attributes
-<<<<<<< HEAD
 		node_attribute_test = @monopartite_network.get_node_attributes(['get_degree'])
 		expected_result = [['A', 2], ['C', 1], ['E', 2],['B', 1], ['D', 2]]
 		assert_equal expected_result, node_attribute_test
@@ -237,12 +251,7 @@ class NetworkTest < Minitest::Test
 	def test_get_node_attributes_zscore
 		node_attribute_test = @monopartite_network.get_node_attributes(['get_degreeZ', 'get_degree'])
 		expected_result = [['A', 0.8164965809277259, 2], ['C', -1.2247448713915894, 1], ['E', 0.8164965809277259, 2],['B', -1.2247448713915894, 1], ['D', 0.8164965809277259, 2]]
-=======
 		node_attribute_test = @monopartite_network.get_node_attributes(['get_degreeZ', "get_degree"])
-		expected_result = [["A", 0.8164965809277259, 2], ["C", -1.2247448713915894, 1], ["E", 0.8164965809277259, 2], ["B", -1.2247448713915894, 1], ["D", 0.8164965809277259, 2]]
-
->>>>>>> 3347e1be06b73198f9e567e1052ac3a269a71a01
-		assert_equal expected_result, node_attribute_test
 	end
 
 	def test_get_counts_association
