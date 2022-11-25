@@ -38,23 +38,23 @@ class Network
 		@layer_ontologies = {}
 	end
 
-	def clone
-		@threads = @threads.clone
-		@nodes = @nodes.clone
-		@edges = @edges.clone
-		@reference_nodes = @reference_nodes.clone
-		@group_nodes = @group_nodes.clone
-		@adjacency_matrices = @adjacency_matrices.clone
-		@kernels = @kernels.clone
-		@layers = @layers.clone
-		@association_values = @association_values.clone
-		@control_connections = @control_connections.clone
-		@compute_pairs = @compute_pairs.clone
-		@compute_autorelations = @compute_autorelations.clone
-		@loaded_obos = @loaded_obos.clone
-		@ontologies = @ontologies.clone
-		@layer_ontologies = @layer_ontologies.clone
-		return self
+	def clone()
+		network_clone = Network.new(@layers.clone)
+		network_clone.threads = @threads.clone
+		network_clone.nodes = @nodes.clone
+		network_clone.edges = @edges.clone
+		network_clone.reference_nodes = @reference_nodes.clone
+		network_clone.group_nodes = @group_nodes.clone
+		network_clone.adjacency_matrices = @adjacency_matrices.clone
+		network_clone.kernels = @kernels.clone
+		network_clone.association_values = @association_values.clone
+		network_clone.control_connections = @control_connections.clone
+		network_clone.set_compute_pairs(@compute_pairs.clone, @compute_autorelations.clone)
+		#network_clone.loaded_obos = @loaded_obos.clone
+		#network_clone.ontologies = @ontologies.clone
+		#network_clone.layer_ontologies = @layer_ontologies.clone
+
+		return network_clone
 	end
 
 	def deep_clone
