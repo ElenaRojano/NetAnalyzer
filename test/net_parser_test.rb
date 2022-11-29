@@ -5,11 +5,9 @@ class Net_parserTest < Minitest::Test
 
 	def setup
 		@bipartite_layers = [[:main, /M[0-9]+/], [:projection, /P[0-9]+/]]
-
+		
 		@monopartite_layers = [[:main, /M[0-9]+/], [:main, /M[0-9]+/]]
 		@monopartite_network_node_names = File.join(DATA_TEST_PATH, 'monopartite_network_node_names.txt')
-
-
 	end
 
 	def test_load_pairs
