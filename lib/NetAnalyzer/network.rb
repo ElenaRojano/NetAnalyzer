@@ -74,11 +74,6 @@ class Network
 		return are_equal
 	end
 
-	
-	def deep_clone
-		Marshal::load(Marshal::dump(self))
-	end
-
 	def set_compute_pairs(use_pairs, get_autorelations)
 		@compute_pairs = use_pairs
 		@compute_autorelations = get_autorelations
