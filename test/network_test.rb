@@ -82,6 +82,18 @@ class NetworkTest < Minitest::Test
 		assert_equal expected_result, layer_test
 	end
 
+	def test_set_layer_excep
+		network_clone = @network_obj.clone
+		node_name = "Z8"
+		begin
+			network_clone.set_layer(@bipartite_layers, node_name)
+		rescue Exception => e
+			test_result = e.message
+		end
+		expected_result = "The node '#{node_name}' not match with any layer regex"
+		assert_equal expected_result, test_result
+	end
+
 	def test_generate_adjacency_matrix_monopartite
 		test_result = @monopartite_network.adjacency_matrices
 		matrix_values = Numo::DFloat[[0, 1, 1, 0, 0],[1, 0, 0, 0, 0], [1, 0, 0, 0, 1], [0, 0, 0, 0, 1], [0, 0, 1, 1, 0]]
@@ -203,8 +215,13 @@ class NetworkTest < Minitest::Test
 	def test_get_all_intersections_no_autorr_all
 		network_clone = @network_obj.clone
 		network_clone.set_compute_pairs(:all, false)
-		#test_result = network_clone.get_all_intersections()
-		## como comprobar que da errorr???
+		begin
+			network_clone.get_all_intersections()
+		rescue Exception => e
+			test_result = e.message
+		end
+		expected_result = 'Not implemented'
+		assert_equal expected_result, test_result		
 	end
 
 	def test_collect_nodes_autorr_some_layers
