@@ -180,27 +180,44 @@ class NetworkTest < Minitest::Test
 	end
 
 	def test_get_all_intersections_autorr_all_layers_conn
-		network_clone = @monopartite_network.clone
+		network_clone = @tripartite_network.clone
 		test_result = network_clone.get_all_intersections
-		expected_result = [1, 1, 1]
+		expected_result = [10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 7, 5, 6, 4, 4, 3, 3, 2, 2, 5, 6, 4, 4, 3, 3, 2, 2, 
+			5, 5, 4, 3, 3, 3, 3, 4, 4, 3, 3, 2, 2, 4, 3, 3, 2, 3, 3, 3, 2, 2, 3, 2, 2, 2, 2, 3, 8, 6, 4, 2, 2,
+			3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 1, 1, 1, 1, 4, 2, 2, 3, 1, 1, 2, 1, 3, 1, 2, 1, 1, 1]
 		assert_equal expected_result, test_result
-		
 	end
 
 	def test_get_all_intersections_autorr_all_layers_all
-		network_clone = @monopartite_network.clone
+		network_clone = @tripartite_network.clone
 		network_clone.set_compute_pairs(:all, true)
 		test_result = network_clone.get_all_intersections
-		expected_result = [0, 0, 0, 1, 1, 0, 0, 1, 0, 0]
+		expected_result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 7, 5, 6, 4, 4, 3, 3, 2, 2, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 4, 4, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 4, 3, 3, 3, 3, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 3, 3, 2, 3, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+			8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 1, 1, 1, 1, 4, 2, 2, 3, 0, 1, 0, 1, 2, 1, 3, 0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 1, 
+			0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
 		assert_equal expected_result, test_result
-		
 	end
 
-	def test_get_all_intersections_no_autorr_some_layers_conn
+	def test_get_all_intersections_autorr_some_layers_conn
 		network_clone = @tripartite_network.clone
-		network_clone.set_compute_pairs(:conn, false)
+		network_clone.set_compute_pairs(:conn, true)
 		test_result = network_clone.get_all_intersections({:layers =>[:main, :salient]})
-		expected_result = [2, 3, 1, 2, 1, 3, 2, 3, 1, 2, 1, 3, 2, 3, 1, 1, 1, 1, 2, 3, 1, 1, 1, 3, 1, 2]
+		expected_result = [10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 
+			1, 1, 1, 1, 4, 2, 2, 3, 1, 1, 2, 1, 3, 1, 2, 1, 1, 1]
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_intersections_autorr_some_layers_all
+		network_clone = @tripartite_network.clone
+		network_clone.set_compute_pairs(:all, true)
+		test_result = network_clone.get_all_intersections({:layers =>[:main, :salient]})
+		expected_result = [10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 
+			1, 1, 1, 1, 4, 2, 2, 3, 0, 1, 0, 1, 2, 1, 3, 0, 0, 0, 1, 0, 2, 
+			0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
 		assert_equal expected_result, test_result
 	end
 
@@ -212,11 +229,99 @@ class NetworkTest < Minitest::Test
 		assert_equal expected_result, test_result
 	end
 
+	def test_get_all_intersections_no_autorr_some_layers_conn
+		network_clone = @tripartite_network.clone
+		network_clone.set_compute_pairs(:conn, false)
+		test_result = network_clone.get_all_intersections({:layers =>[:main, :salient]})
+		expected_result = [2, 3, 1, 2, 1, 3, 2, 3, 1, 2, 1, 3, 2, 3, 1, 1, 1, 1, 2, 3, 1, 1, 1, 3, 1, 2]
+		assert_equal expected_result, test_result
+	end
+
 	def test_get_all_intersections_no_autorr_all
-		network_clone = @network_obj.clone
+		network_clone = @tripartite_network.clone
 		network_clone.set_compute_pairs(:all, false)
 		begin
 			network_clone.get_all_intersections()
+		rescue Exception => e
+			test_result = e.message
+		end
+		expected_result = 'Not implemented'
+		assert_equal expected_result, test_result		
+	end
+
+	def test_get_all_intersections_autorr_all_layers_conn
+		network_clone = @tripartite_network.clone
+		test_result = network_clone.get_all_pairs() do |node1, node2|
+			network_clone.intersection(node1, node2).length
+		end
+		expected_result = [10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 7, 5, 6, 4, 4, 3, 3, 2, 2, 5, 6, 4, 4, 3, 3, 2, 2, 
+			5, 5, 4, 3, 3, 3, 3, 4, 4, 3, 3, 2, 2, 4, 3, 3, 2, 3, 3, 3, 2, 2, 3, 2, 2, 2, 2, 3, 8, 6, 4, 2, 2,
+			3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 1, 1, 1, 1, 4, 2, 2, 3, 1, 1, 2, 1, 3, 1, 2, 1, 1, 1]
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_intersections_autorr_all_layers_all
+		network_clone = @tripartite_network.clone
+		network_clone.set_compute_pairs(:all, true)
+		test_result = network_clone.get_all_pairs() do |node1, node2|
+			network_clone.intersection(node1, node2).length
+		end
+		expected_result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 7, 5, 6, 4, 4, 3, 3, 2, 2, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 4, 4, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 4, 3, 3, 3, 3, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 3, 3, 2, 3, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+			8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 1, 1, 1, 1, 4, 2, 2, 3, 0, 1, 0, 1, 2, 1, 3, 0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 1, 
+			0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_intersections_autorr_some_layers_conn
+		network_clone = @tripartite_network.clone
+		network_clone.set_compute_pairs(:conn, true)
+		test_result = network_clone.get_all_pairs({:layers =>[:main, :salient]}) do |node1, node2|
+			network_clone.intersection(node1, node2).length
+		end
+		expected_result = [10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 
+			1, 1, 1, 1, 4, 2, 2, 3, 1, 1, 2, 1, 3, 1, 2, 1, 1, 1]
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_intersections_autorr_some_layers_all
+		network_clone = @tripartite_network.clone
+		network_clone.set_compute_pairs(:all, true)
+		test_result = network_clone.get_all_pairs({:layers =>[:main, :salient]}) do |node1, node2|
+			network_clone.intersection(node1, node2).length
+		end
+		expected_result = [10, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 8, 6, 4, 2, 2, 3, 1, 2, 1, 3, 6, 4, 2, 2, 3, 
+			1, 1, 1, 1, 4, 2, 2, 3, 0, 1, 0, 1, 2, 1, 3, 0, 0, 0, 1, 0, 2, 
+			0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_pairs_no_autorr_all_layers_conn
+		network_clone = @tripartite_network.clone
+		network_clone.set_compute_pairs(:conn, false)
+		test_result = network_clone.get_all_pairs
+		expected_result = []
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_pairs_no_autorr_some_layers_conn
+		network_clone = @tripartite_network.clone
+		network_clone.set_compute_pairs(:conn, false)
+		test_result = network_clone.get_all_pairs({:layers =>[:main, :salient]}) do |node1, node2|
+			network_clone.intersection(node1, node2).length
+		end
+		expected_result = [2, 3, 1, 2, 1, 3, 2, 3, 1, 2, 1, 3, 2, 3, 1, 1, 1, 1, 2, 3, 1, 1, 1, 3, 1, 2]
+		assert_equal expected_result, test_result
+	end
+
+	def test_get_all_pairs_no_autorr_all
+		network_clone = @network_obj.clone
+		network_clone.set_compute_pairs(:all, false)
+		begin
+			network_clone.get_all_pairs()
 		rescue Exception => e
 			test_result = e.message
 		end
