@@ -16,7 +16,7 @@ require 'expcalc'
 
 class Network 
 
-	attr_accessor :adjacency_matrices, :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads
+	attr_accessor :adjacency_matrices, :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads, :nodes, :edges
 
 	## BASIC METHODS
 	############################################################
