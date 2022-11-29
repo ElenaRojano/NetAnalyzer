@@ -16,7 +16,7 @@ require 'expcalc'
 
 class Network 
 
-	attr_accessor :adjacency_matrices, :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads, :nodes, :edges
+	attr_accessor :adjacency_matrices, :association_values, :control_connections, :kernels, :reference_nodes, :group_nodes, :threads, :nodes, :edges, :compute_pairs, :compute_autorelations
 
 	## BASIC METHODS
 	############################################################
@@ -38,7 +38,7 @@ class Network
 		@layer_ontologies = {}
 	end
 
-	def clone()
+	def clone
 		network_clone = Network.new(@layers.clone)
 		network_clone.threads = @threads.clone
 		network_clone.nodes = @nodes.clone
@@ -57,6 +57,24 @@ class Network
 		return network_clone
 	end
 
+	def ==(other)
+		are_equal = true
+		if self.threads != other.threads ||
+			self.nodes != other.nodes ||
+			self.edges != other.edges ||
+			self.reference_nodes != other.reference_nodes ||
+			self.group_nodes != other.group_nodes ||
+			self.adjacency_matrices != other.adjacency_matrices ||
+			self.association_values != other.association_values ||
+			self.control_connections != other.control_connections ||
+			self.compute_pairs != other.compute_pairs ||
+			self.compute_autorelations != other.compute_autorelations
+			are_equal = false 
+		end
+		return are_equal
+	end
+
+	
 	def deep_clone
 		Marshal::load(Marshal::dump(self))
 	end

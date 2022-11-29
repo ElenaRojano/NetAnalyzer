@@ -1,6 +1,20 @@
 ROOT_PATH = File.dirname(__FILE__)
 require File.join(ROOT_PATH, 'test_helper.rb')
 
+
+
+
+class NodeTest < Minitest::Test
+	def setup 
+		@node_to_test = Node.new("M1", :main)
+	end
+
+	def test_node_clone
+		node_clone = @node_to_test.clone
+		assert_equal node_clone, @node_to_test
+	end
+end
+
 class NetworkTest < Minitest::Test
 
 	def setup
@@ -18,8 +32,9 @@ class NetworkTest < Minitest::Test
 
 	def test_clone
 		network_clone = @network_obj.clone
-		test_adjacency_matrices = @network_obj.adjacency_matrices
-		assert_equal test_adjacency_matrices, network_clone.adjacency_matrices		
+		assert_equal @network_obj, network_clone	
+		network_clone.compute_autorelations = false
+		refute_equal @network_obj, network_clone	
 	end
 
 	def test_clone_change
