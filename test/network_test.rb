@@ -453,7 +453,6 @@ class NetworkTest < Minitest::Test
 		assert_equal(all_association_values.sort, test_association.sort)
 	end
 
-=begin
 	def test_get_pcc_associations
 		test_association = @network_obj.get_pcc_associations([:main], :projection) 
 		test_association.map!{|a| [a[0], a[1], a[2].round(6)]}
@@ -492,7 +491,6 @@ class NetworkTest < Minitest::Test
 		end
 		assert_equal(all_association_values.sort, test_association.sort)
 	end
-=end
 	#def test_randomize_monopartite_net_by_nodes
 	#	nodes =  @monopartite_network.get_nodes_from_layer(@monopartite_layers[0].first).length	
 	#	edges = @monopartite_network.get_edge_number
