@@ -728,6 +728,7 @@ class Network
 
 	def get_csi_associations(layers, base_layer)
 		pcc_relations = get_pcc_associations(layers, base_layer)
+		pcc_relations.select!{|row| !row[2].nan?}
 		clean_autorelations_on_association_values if layers.length > 1
 		nx = get_nodes_layer(layers).length
 		pcc_vals = {}
@@ -742,14 +743,13 @@ class Network
 		pcc_relations.each do |node1, node2 ,assoc_index|
 			pccAB = assoc_index - 0.05
 			valid_nodes = 0
-			node_rels[node1].each do |node|
-				valid_nodes += 1 if pcc_vals[node1][node] >= pccAB
-			end
-			node_rels[node2].each do |node|
-				valid_nodes += 1 if pcc_vals[node2][node] >= pccAB
-			end
-			csiValue = 1 - (valid_nodes-1).fdiv(nx) 
-			# valid_nodes-1 is done due to the connection node1-node2 is counted twice (one for each loop)
+
+			significant_nodes_from_node1 = node_rels[node1].select{|node| pcc_vals[node1][node] >= pccAB}
+			significant_nodes_from_node2 = node_rels[node2].select{|node| pcc_vals[node2][node] >= pccAB}
+			all_significant_nodes = significant_nodes_from_node2 | significant_nodes_from_node1
+			all_nodes = node_rels[node1] | node_rels[node2]
+			
+			csiValue = 1 - (all_significant_nodes.length).fdiv(all_nodes.length) 		
 			relations << [node1, node2, csiValue]
 		end
 		@association_values[:csi] = relations

@@ -460,9 +460,16 @@ class NetworkTest < Minitest::Test
 		File.open(File.join(ROOT_PATH, 'pcc_results.txt')).each("\n") do |line|
 			line.chomp!
 			fields = line.split("\t")
-			association_value = fields.pop.to_f
+			association_value = fields.pop
+			if association_value == "NaN"
+				association_value = Float::NAN
+			else
+				association_value = association_value.to_f 
+			end
 			all_association_values << [fields[0], fields[1], association_value.round(6)]
 		end
+		test_association.select!{|row| !row[2].nan?}
+		all_association_values.select!{|row| !row[2].nan?}
 		assert_equal(all_association_values.sort, test_association.sort)
 	end
 
