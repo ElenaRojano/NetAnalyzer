@@ -20,7 +20,7 @@ class Network
 
 	## BASIC METHODS
 	############################################################
-	def initialize(layers)
+	def initialize(layers) # DONE
 		@threads = 0
 		@nodes = {}
 		@edges = {}
@@ -38,7 +38,7 @@ class Network
 		@layer_ontologies = {}
 	end
 
-	def clone
+	def clone # DONE
 		network_clone = Network.new(@layers.clone)
 		network_clone.threads = @threads.clone
 		network_clone.nodes = @nodes.clone
@@ -57,7 +57,7 @@ class Network
 		return network_clone
 	end
 
-	def ==(other)
+	def ==(other) # DONE
 		are_equal = true
 		if self.threads != other.threads ||
 			self.nodes != other.nodes ||
@@ -74,21 +74,21 @@ class Network
 		return are_equal
 	end
 
-	def set_compute_pairs(use_pairs, get_autorelations)
+	def set_compute_pairs(use_pairs, get_autorelations) #DONE
 		@compute_pairs = use_pairs
 		@compute_autorelations = get_autorelations
 	end
 
-	def add_node(nodeID, nodeType = 0)
+	def add_node(nodeID, nodeType = 0) # DONE
 		@nodes[nodeID] = Node.new(nodeID, nodeType)
 	end
 
-	def add_edge(nodeID1, nodeID2)
+	def add_edge(nodeID1, nodeID2) # DONE
 		add_edge2hash(nodeID1, nodeID2)
 		add_edge2hash(nodeID2, nodeID1)
 	end
 
-	def add_edge2hash(nodeA, nodeB)
+	def add_edge2hash(nodeA, nodeB) # NOT
 		query = @edges[nodeA]
 		if query.nil?
 			@edges[nodeA] = [nodeB]
@@ -97,7 +97,7 @@ class Network
 		end
 	end
 
-	def set_layer(layer_definitions, node_name)
+	def set_layer(layer_definitions, node_name) # DONE
 		layer = nil
 		if layer_definitions.length > 1
 			layer_definitions.each do |layer_name, regexp|
@@ -114,7 +114,7 @@ class Network
 		return layer
 	end
 
-	def generate_adjacency_matrix(layerA, layerB)
+	def generate_adjacency_matrix(layerA, layerB) # DONE
 		layerAidNodes = @nodes.select{|id, node| node.type == layerA}.keys
 		layerBidNodes = @nodes.select{|id, node| node.type == layerB}.keys
 		matrix = Numo::DFloat.zeros(layerAidNodes.length, layerBidNodes.length)
@@ -138,7 +138,7 @@ class Network
 	end
 
 
-	def delete_nodes(node_list, mode='d')
+	def delete_nodes(node_list, mode='d') #DONE
 		if mode == 'd'
 			@nodes.reject!{|n| node_list.include?(n)}
 			@edges.reject!{|n, connections| node_list.include?(n)}
@@ -159,10 +159,6 @@ class Network
 		return @edges[node_id].map{|id| @nodes[id]}.select{|node| node.type == from_layer}.map{|node| node.id}
 	end
 
-	def get_nodes_from_layer(from_layer)
-		return @nodes.values.select{|node| node.type == from_layer}.map{|node| node.id}
-	end
-
 	def get_bipartite_subgraph(from_layer_node_ids, from_layer, to_layer)
 		bipartite_subgraph = {}
 		from_layer_node_ids.each do |from_layer_node_id| 
@@ -180,7 +176,7 @@ class Network
 	end
 
 
-	def get_edge_number
+	def get_edge_number # DONE
 		node_connections = get_degree(zscore = false).values.inject(0){|sum, n| sum + n}
 		return node_connections/2
 	end
@@ -206,7 +202,7 @@ class Network
 		return intersection_lengths
 	end
 
-	def get_all_pairs(args = {})
+	def get_all_pairs(args = {}) # DONE
 		all_pairs = [] #lo que se devolvera
 		default = {:layers => :all}
 		args = default.merge(args) 
@@ -259,7 +255,7 @@ class Network
 		return all_pairs
 	end
 
-	def collect_nodes(args)
+	def collect_nodes(args) # DONE
 		nodeIDsA = nil
 		nodeIDsB = nil
 		if @compute_autorelations
@@ -280,7 +276,7 @@ class Network
 		return nodeIDsA, nodeIDsB
 	end
 
-	def get_nodes_layer(layers)
+	def get_nodes_layer(layers) # DONE
 		#for creating ny value in hypergeometric and pcc index
 		nodes = []
 		layers.each do |layer|
@@ -549,7 +545,7 @@ class Network
 
 	## association methods adjacency matrix based
 	#---------------------------------------------------------
-	def get_association_by_transference_resources(firstPairLayers, secondPairLayers, lambda_value1 = 0.5, lambda_value2 = 0.5)
+	def get_association_by_transference_resources(firstPairLayers, secondPairLayers, lambda_value1 = 0.5, lambda_value2 = 0.5) # DONE
 		relations = []
 		matrix1 = @adjacency_matrices[firstPairLayers].first
 		matrix2 = @adjacency_matrices[secondPairLayers].first
@@ -564,7 +560,7 @@ class Network
 	## association methods node pairs based
 	#---------------------------------------------------------
 	# Bass 2013, doi:10.1038/nmeth.2728
-	def get_associations(layers, base_layer) # BASE METHOD
+	def get_associations(layers, base_layer) # DONE BASE METHOD
 		associations = get_all_pairs(layers: layers) do |node1, node2|
 			associatedIDs_node1 = @edges[node1].map{|id| @nodes[id]}.select{|node| node.type == base_layer}.map{|node| node.id}
 			associatedIDs_node2 = @edges[node2].map{|id| @nodes[id]}.select{|node| node.type == base_layer}.map{|node| node.id}
@@ -575,7 +571,7 @@ class Network
 		return associations
 	end
 
-	def get_counts_association(layers, base_layer)
+	def get_counts_association(layers, base_layer) # DONE
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			countValue = intersectedIDs.length	
 		end
@@ -583,7 +579,7 @@ class Network
 		return relations
 	end
 
-	def get_jaccard_association(layers, base_layer)
+	def get_jaccard_association(layers, base_layer) # DONE
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			unionIDS = associatedIDs_node1 | associatedIDs_node2
 			jaccValue = intersectedIDs.length.to_f/unionIDS.length		
@@ -592,7 +588,7 @@ class Network
 		return relations
 	end
 
-	def get_simpson_association(layers, base_layer)
+	def get_simpson_association(layers, base_layer) # DONE
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			minLength = [associatedIDs_node1.length, associatedIDs_node2.length].min
 			simpsonValue = intersectedIDs.length.to_f/minLength
@@ -601,7 +597,7 @@ class Network
 		return relations
 	end
 
-	def get_geometric_associations(layers, base_layer)
+	def get_geometric_associations(layers, base_layer) # DONE
 		#wang 2016 method
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|	
 			intersectedIDs = intersectedIDs.length**2
@@ -612,7 +608,7 @@ class Network
 		return relations
 	end
 
-	def get_cosine_associations(layers, base_layer)
+	def get_cosine_associations(layers, base_layer) # DONE
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
 			productLength = Math.sqrt(associatedIDs_node1.length * associatedIDs_node2.length)
 			cosineValue = intersectedIDs.length/productLength
@@ -621,7 +617,7 @@ class Network
 		return relations
 	end
 
-	def get_pcc_associations(layers, base_layer)
+	def get_pcc_associations(layers, base_layer) # DONE
 		#for Ny calcule use get_nodes_layer
 		base_layer_nodes = get_nodes_layer([base_layer])
 		ny = base_layer_nodes.length
@@ -637,7 +633,7 @@ class Network
 		return relations
 	end
 
-	def get_hypergeometric_associations(layers, base_layer, pvalue_adj_method= nil)
+	def get_hypergeometric_associations(layers, base_layer, pvalue_adj_method= nil) # DONE
 		ny = get_nodes_layer([base_layer]).length
 		fet = Rubystats::FishersExactTest.new
 		relations = get_associations(layers, base_layer) do |associatedIDs_node1, associatedIDs_node2, intersectedIDs, node1, node2|
@@ -670,11 +666,11 @@ class Network
 		return relations
 	end
 
-	def get_hypergeometric_associations_with_topology(layers, base_layer, mode, thresold = 0.01)
+	def get_hypergeometric_associations_with_topology(layers, base_layer, mode, thresold = 0.01) # NOT
 		relations = []
 		reference_layer = (layers - @layer_ontologies.keys).first
 		ontology_layer = (layers - [reference_layer]).first
-		ref_nodes = get_nodes_from_layer(reference_layer) # get nodes from NOT ontology layer
+		ref_nodes = get_nodes_layer([reference_layer]) # get nodes from NOT ontology layer
 		ontology = @layer_ontologies[ontology_layer]
 		base_layer_length = @nodes.values.count{|n| n.type == base_layer}
 		ref_nodes.each do |ref_node|
@@ -696,7 +692,7 @@ class Network
 		return relations
 	end
 
-	def compute_adjusted_pvalue(relations, log_val=true)
+	def compute_adjusted_pvalue(relations, log_val=true) # DONE
 		relations.each_with_index do |data, i| #p1, p2, pval
 			pval_adj = yield(data.last, i)		
 			pval_adj = -Math.log10(pval_adj) if log_val && pval_adj > 0
@@ -704,13 +700,13 @@ class Network
 		end
 	end
 
-	def compute_log_transformation(relations) #Only perform log transform whitout adjust pvalue. Called when adjusted method is not defined 
+	def compute_log_transformation(relations) # NOT #Only perform log transform whitout adjust pvalue. Called when adjusted method is not defined 
 		compute_adjusted_pvalue(relations) do |pval, index| 
 			pval
 		end
 	end
 
-	def compute_adjusted_pvalue_bonferroni(relations)
+	def compute_adjusted_pvalue_bonferroni(relations) # DONE
 		n_comparations = relations.length
 		compute_adjusted_pvalue(relations) do |pval, index|
 			adj = pval * n_comparations
@@ -719,14 +715,14 @@ class Network
 		end
 	end
 
-	def compute_adjusted_pvalue_benjaminiHochberg(relations)
+	def compute_adjusted_pvalue_benjaminiHochberg(relations) # DONE
 		adj_pvalues = get_benjaminiHochberg_pvalues(relations.map{|rel| rel.last})
 		compute_adjusted_pvalue(relations) do |pval, index|
 			adj_pvalues[index]
 		end
 	end
 
-	def get_csi_associations(layers, base_layer)
+	def get_csi_associations(layers, base_layer) # DONE
 		pcc_relations = get_pcc_associations(layers, base_layer)
 		pcc_relations.select!{|row| !row[2].nan?}
 		clean_autorelations_on_association_values if layers.length > 1
@@ -756,17 +752,17 @@ class Network
 		return relations
 	end
 
-	def get_kernel(layer2kernel, kernel, normalization=false)
+	def get_kernel(layer2kernel, kernel, normalization=false) # DONE
 		matrix, node_names = @adjacency_matrices[layer2kernel]
 		matrix_result = Adv_mat_calc.get_kernel(matrix, node_names, kernel, normalization=normalization)
 		@kernels[layer2kernel] = matrix_result
 	end
 
-	def write_kernel(layer2kernel, output_file)
+	def write_kernel(layer2kernel, output_file) # DONE
 		@kernels[layer2kernel].save(output_file)
 	end
 
-	def link_ontology(ontology_file_path, layer_name)
+	def link_ontology(ontology_file_path, layer_name) # NOT until semtools is migrated
 		if !@loaded_obos.include?(ontology_file_path) #Load new ontology
 			ontology = Ontology.new(file: ontology_file_path, load_file: true)
 			@loaded_obos << ontology_file_path
@@ -910,7 +906,7 @@ class Network
 		return val.nil? ? 'NULL' : val
 	end
 
-	def add_record(hash, node1, node2)
+	def add_record(hash, node1, node2) # DONE
 		query = hash[node1]
 		if query.nil?
 			hash[node1] = [node2]
@@ -919,7 +915,7 @@ class Network
 		end
 	end
 
-	def add_nested_record(hash, node1, node2, val)
+	def add_nested_record(hash, node1, node2, val) # DONE
 		query_node1 = hash[node1]
 		if query_node1.nil?
 			hash[node1] = {node2 => val}
@@ -938,7 +934,7 @@ class Network
 		return res
 	end
 
-	def matrix2relations(finalMatrix, rowIds, colIds)
+	def matrix2relations(finalMatrix, rowIds, colIds) # DONE
 		relations = []
 		rowIds.each_with_index do |rowId, rowPos|
 			colIds.each_with_index do |colId, colPos|
