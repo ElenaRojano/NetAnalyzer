@@ -670,7 +670,7 @@ class Network
 		relations = []
 		reference_layer = (layers - @layer_ontologies.keys).first
 		ontology_layer = (layers - [reference_layer]).first
-		ref_nodes = get_nodes_layer([reference_layer]) # get nodes from NOT ontology layer
+		ref_nodes = get_nodes_layer([reference_layer]).map{|n| n.id} # get nodes from NOT ontology layer
 		ontology = @layer_ontologies[ontology_layer]
 		base_layer_length = @nodes.values.count{|n| n.type == base_layer}
 		ref_nodes.each do |ref_node|
