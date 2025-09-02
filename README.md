@@ -1,4 +1,6 @@
 # NetAnalyzer
+
+DEPRECATED PROJECT. MIGRATED TO [python semtools](https://github.com/seoanezonjic/NetAnalyzer)
  
 NetAnalyzer is a network analysis tool that can be used to calculate the associations between nodes in unweighted n-partite networks [1]. The calculation of the association between nodes is based on similarity indices (Jaccard, Simpson, geometric and cosine), statistic-based (Pearson correlation coefficient, CSI and  hypergeometric) [2] and a special metric designed only for tripartite networks (here called as 'transference' method [3]). The user can choose the association index method according to the network to analyse. The tool gives a table of results, with all the associations between nodes and the association value calculated.
  
